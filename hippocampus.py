@@ -13,17 +13,18 @@ def reset_nest(dt, seed):
 
 @dataclass(kw_only=True, unsafe_hash=True)
 class Weights:
-    EE: float = 0.00013e4
-    EI: float = 0.0047e4
-    II: float = 0.0076e4
-    IE: float = 0.0016e4
-    XE: float = 0.0003e4
-    FE: float = 0.001e4
-    XI: float = 0.0005e4
-    FI: float = 0.001e4
+    EE: float = 0.13
+    EI: float = 4.7
+    II: float = 7.6
+    IE: float = 1.6
+    XE: float = 0.3
+    FE: float = 1.0
+    XI: float = 0.5
+    FI: float = 1.0
 
 
-def create_dentate_gyrus(N_granule:int, N_basket:int, w:Weights=Weights()):
+def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
+                         w=Weights()):
     '''
     Create a dentate gyrus network for a NEST simulation, consisting of
     N_granule granule cells and N_basket basket cells, based on the dentate
@@ -77,7 +78,7 @@ def create_dentate_gyrus(N_granule:int, N_basket:int, w:Weights=Weights()):
                           radius=r_kth_nearest(r_b, N_basket, 1))),
                       allow_autapses=False),
                  dict(synapse_model='static_synapse',
-                      weight=nest.random.uniform(2*w.II, 5*w.II)))
+                      weight=-nest.random.uniform(2*w.II, 5*w.II)))
 
     # For between-population connections, find the nearest point in the
     # other population by calculating the position of the nearest neuron in
@@ -93,7 +94,7 @@ def create_dentate_gyrus(N_granule:int, N_basket:int, w:Weights=Weights()):
         nest.Connect(b, neighbors,
                      dict(rule='fixed_outdegree', outdegree=100),
                      dict(synapse_model='static_synapse',
-                          weight=nest.random.uniform(2*w.IE, 5*w.IE)))
+                          weight=-nest.random.uniform(2*w.IE, 5*w.IE)))
 
     for g, θ in zip(granule, theta_g):
         θ = np.clip(θ, theta_b[1], theta_b[-2])
@@ -113,12 +114,25 @@ def create_dentate_gyrus(N_granule:int, N_basket:int, w:Weights=Weights()):
                      dict(synapse_model='static_synapse',
                           weight=nest.random.uniform(5*wX, 15*wX)))
 
+    # The focal input is required to give the simulation a kick.
+    focal = nest.Create('poisson_generator',
+                        params=dict(rate=100.0, start=100.0, stop=200.0))
+    focal_granule = nest.Create('parrot_neuron', 200)
+    nest.Connect(focal, focal_granule, 'all_to_all')
+    nest.Connect(focal_granule, granule,
+                 dict(rule='fixed_indegree', indegree=100),
+                 dict(synapse_model='static_synapse',
+                      weight=nest.random.uniform(5*w.FE, 15*w.FE)))
+    nest.Connect(focal, basket, 'all_to_all',
+                 dict(synapse_model='static_synapse',
+                      weight=nest.random.uniform(10*w.FI, 30*w.FI)))
+
     return granule, basket
 
 
-def sim(T=10e3, N_granule=500, N_basket=6, dt=0.1, seed=42):
+def sim(T=1e3, dt=0.1, seed=42, **kwargs):
     reset_nest(dt, seed)
-    granule, basket = create_dentate_gyrus(N_granule, N_basket)
+    granule, basket = create_dentate_gyrus(**kwargs)
     rec = nest.Create('spike_recorder')
     nest.Connect(granule, rec)
     nest.Connect(basket, rec)
