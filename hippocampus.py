@@ -11,11 +11,11 @@ def reset_nest(dt, seed):
 
 
 
-def create_dentate_gyrus(N:int):
+def create_dentate_gyrus(N_granule:int, N_basket:int):
     '''
     Create a dentate gyrus network for a NEST simulation, consisting of
-    N granule cells and N basket cells, based on the dentate gyrus network
-    of Buchin et al. 2023.
+    N_granule granule cells and N_basket basket cells, based on the dentate
+    gyrus network of Buchin et al. 2023.
 
     Granule cells and basket cells are arranged in concentric half-circular
     arcs of radius 1500μm and 750μm, and connectivity is all local. GCs
@@ -31,28 +31,30 @@ def create_dentate_gyrus(N:int):
     different amplitudes and time constants to emulate the effect of
     '''
     # Create 2N nodes at positions along the arcs.
-    theta = np.linspace(0, np.pi, N)
-    r_granule, r_basket = 1500, 750
-    pos_granule = nest.spatial.free(
-        list(zip(r_granule*np.sin(theta), r_granule*np.cos(theta))))
-    pos_basket = nest.spatial.free(
-        list(zip(r_basket*np.sin(theta), r_basket*np.cos(theta))))
-    granule = nest.Create('iaf_cond_alpha', positions=pos_granule)
-    basket = nest.Create('iaf_cond_alpha', positions=pos_basket)
+    theta_g = np.linspace(0, np.pi, N_granule)
+    theta_b = np.linspace(0, np.pi, N_basket)
+    r_g, r_b = 800, 750
+    pos_g = nest.spatial.free(
+        list(zip(r_g*np.sin(theta_g), r_g*np.cos(theta_g))))
+    pos_b = nest.spatial.free(
+        list(zip(r_b*np.sin(theta_b), r_b*np.cos(theta_b))))
+    granule = nest.Create('iaf_cond_alpha', positions=pos_g)
+    basket = nest.Create('iaf_cond_alpha', positions=pos_b)
 
-    def r_kth_nearest(radius, k):
+    def r_kth_nearest(radius, N, k):
         'The distance to the kth nearest neighbor on a half-circle.'
-        return radius*np.pi*k/(N-1)
+        angle_per_step = np.pi/(N-1)
+        return 2*radius * np.sin(k*angle_per_step/2)
 
     # Connect the granule cells to each other with a circular mask that only
     # grabs the 100 nearest neighbors, and a fixed degree of 50. Note that
     # this means going for the 50th-nearest neighbor, as the radius extends
     # in both directions.
-    w = 5.0
+    w = 4.0
     nest.Connect(granule, granule,
                  dict(rule='fixed_outdegree', outdegree=50,
                       mask=dict(circular=dict(
-                          radius=r_kth_nearest(r_granule, 50))),
+                          radius=r_kth_nearest(r_g, N_granule, 50))),
                       allow_autapses=False),
                  dict(synapse_model='static_synapse',
                       weight=nest.random.uniform(2*w, 5*w)))
@@ -61,7 +63,7 @@ def create_dentate_gyrus(N:int):
     nest.Connect(basket, basket,
                  dict(rule='pairwise_bernoulli', p=1.0,
                       mask=dict(circular=dict(
-                          radius=r_kth_nearest(r_basket, 1))),
+                          radius=r_kth_nearest(r_b, N_basket, 1))),
                       allow_autapses=False),
                  dict(synapse_model='static_synapse',
                       weight=nest.random.uniform(2*w, 5*w)))
@@ -71,24 +73,23 @@ def create_dentate_gyrus(N:int):
     # the other layer and using that as the anchor for the mask.
     # Unfortunately, the anchor can only be a number, not a parameter, so
     # this has to be done in a loop.
-    for b, θ in zip(basket, theta):
-        θ = np.clip(θ, theta[69], theta[-70])
+    for b, θ in zip(basket, theta_b):
+        θ = np.clip(θ, theta_g[69], theta_g[-70])
         mask = nest.CreateMask(
-            'circular', dict(radius=r_kth_nearest(r_granule, 70)))
+            'circular', dict(radius=r_kth_nearest(r_g, N_granule, 70)))
         neighbors = nest.SelectNodesByMask(
-            granule, [r_granule*np.sin(θ), r_granule*np.cos(θ)], mask)
+            granule, [r_g*np.sin(θ), r_g*np.cos(θ)], mask)
         nest.Connect(b, neighbors,
                      dict(rule='fixed_outdegree', outdegree=100),
                      dict(synapse_model='static_synapse',
                           weight=nest.random.uniform(2*w, 5*w)))
 
-    for g, θ in zip(granule, theta):
-        θ = np.clip(θ, theta[1], theta[-2])
+    for g, θ in zip(granule, theta_g):
+        θ = np.clip(θ, theta_b[1], theta_b[-2])
         mask = nest.CreateMask(
-            'circular', dict(radius=r_kth_nearest(r_basket, 1)))
+            'circular', dict(radius=r_kth_nearest(r_b, N_basket, 1.5)))
         neighbors = nest.SelectNodesByMask(
-            basket, [r_basket*np.sin(θ), r_basket*np.cos(θ)], mask)
-        assert len(neighbors) == 3
+            basket, [r_b*np.sin(θ), r_b*np.cos(θ)], mask)
         nest.Connect(g, neighbors,
                      dict(rule='pairwise_bernoulli', p=1.0),
                      dict(synapse_model='static_synapse',
@@ -104,15 +105,15 @@ def create_dentate_gyrus(N:int):
     return granule, basket
 
 
-def sim():
-    reset_nest(0.1, 42)
-    granule, basket = create_dentate_gyrus(506)
+def sim(T=10e3, N_granule=500, N_basket=6, dt=0.1, seed=42):
+    reset_nest(dt, seed)
+    granule, basket = create_dentate_gyrus(N_granule, N_basket)
     rec = nest.Create('spike_recorder')
     nest.Connect(granule, rec)
     nest.Connect(basket, rec)
-    nest.Simulate(10e3)
+    nest.Simulate(T)
     return [
-        ba.SpikeData(rec, layer, length=10e3, N=506)
+        ba.SpikeData(rec, layer, length=10e3, N=len(layer))
         for layer in (granule, basket)]
 
 sds = sim()
