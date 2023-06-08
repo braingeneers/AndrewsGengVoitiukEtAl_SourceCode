@@ -123,8 +123,13 @@ def sim(T=10e3, N_granule=500, N_basket=6, dt=0.1, seed=42):
     nest.Connect(granule, rec)
     nest.Connect(basket, rec)
     nest.Simulate(T)
-    return [
-        ba.SpikeData(rec, layer, length=10e3, N=len(layer))
+    # This is a little weird, but I want to use the spike train extraction
+    # code I wrote for SpikeData, but NEST NodeCollections can't be combined
+    # once they have spatial metadata etc. Instead, create a SpikeData per
+    # population, and combine their actual data.
+    sdg, sdb = [
+        ba.SpikeData(rec, layer, N=len(layer))
         for layer in (granule, basket)]
+    return ba.SpikeData(sdg.train + sdb.train, length=10e3)
 
-sds = sim()
+sd = sim()
