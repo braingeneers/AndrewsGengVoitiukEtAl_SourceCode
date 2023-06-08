@@ -1,6 +1,7 @@
 import nest
 import numpy as np
 import braingeneers.analysis as ba
+from dataclasses import dataclass
 
 
 def reset_nest(dt, seed):
@@ -10,8 +11,19 @@ def reset_nest(dt, seed):
     nest.rng_seed = seed
 
 
+@dataclass(kw_only=True, unsafe_hash=True)
+class Weights:
+    EE: float = 0.00013e4
+    EI: float = 0.0047e4
+    II: float = 0.0076e4
+    IE: float = 0.0016e4
+    XE: float = 0.0003e4
+    FE: float = 0.001e4
+    XI: float = 0.0005e4
+    FI: float = 0.001e4
 
-def create_dentate_gyrus(N_granule:int, N_basket:int):
+
+def create_dentate_gyrus(N_granule:int, N_basket:int, w:Weights=Weights()):
     '''
     Create a dentate gyrus network for a NEST simulation, consisting of
     N_granule granule cells and N_basket basket cells, based on the dentate
@@ -50,14 +62,13 @@ def create_dentate_gyrus(N_granule:int, N_basket:int):
     # grabs the 100 nearest neighbors, and a fixed degree of 50. Note that
     # this means going for the 50th-nearest neighbor, as the radius extends
     # in both directions.
-    w = 4.0
     nest.Connect(granule, granule,
                  dict(rule='fixed_outdegree', outdegree=50,
                       mask=dict(circular=dict(
                           radius=r_kth_nearest(r_g, N_granule, 50))),
                       allow_autapses=False),
                  dict(synapse_model='static_synapse',
-                      weight=nest.random.uniform(2*w, 5*w)))
+                      weight=nest.random.uniform(2*w.EE, 5*w.EE)))
 
     # Likewise for the BCs, but they only connect to immediate neighbors.
     nest.Connect(basket, basket,
@@ -66,7 +77,7 @@ def create_dentate_gyrus(N_granule:int, N_basket:int):
                           radius=r_kth_nearest(r_b, N_basket, 1))),
                       allow_autapses=False),
                  dict(synapse_model='static_synapse',
-                      weight=nest.random.uniform(2*w, 5*w)))
+                      weight=nest.random.uniform(2*w.II, 5*w.II)))
 
     # For between-population connections, find the nearest point in the
     # other population by calculating the position of the nearest neuron in
@@ -82,7 +93,7 @@ def create_dentate_gyrus(N_granule:int, N_basket:int):
         nest.Connect(b, neighbors,
                      dict(rule='fixed_outdegree', outdegree=100),
                      dict(synapse_model='static_synapse',
-                          weight=nest.random.uniform(2*w, 5*w)))
+                          weight=nest.random.uniform(2*w.IE, 5*w.IE)))
 
     for g, θ in zip(granule, theta_g):
         θ = np.clip(θ, theta_b[1], theta_b[-2])
@@ -93,14 +104,14 @@ def create_dentate_gyrus(N_granule:int, N_basket:int):
         nest.Connect(g, neighbors,
                      dict(rule='pairwise_bernoulli', p=1.0),
                      dict(synapse_model='static_synapse',
-                          weight=nest.random.uniform(2*w, 5*w)))
+                          weight=nest.random.uniform(2*w.EI, 5*w.EI)))
 
     # Finally create the Poisson inputs to all of this...
     noise = nest.Create('poisson_generator', params=dict(rate=15.0))
-    for layer in (granule, basket):
+    for layer, wX in ((granule, w.XE), (basket, w.XI)):
         nest.Connect(noise, layer, 'all_to_all',
                      dict(synapse_model='static_synapse',
-                          weight=nest.random.uniform(5*w, 15*w)))
+                          weight=nest.random.uniform(5*wX, 15*wX)))
 
     return granule, basket
 
