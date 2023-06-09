@@ -2,7 +2,6 @@ neuron izh_cond_exp2syn:
   state:
     V_m mV = c
     U_m mV = b * V_m
-  end
 
   equations:
     kernel g_exc = exp(-t / tau2_exc) - exp(-t / tau1_exc)
@@ -12,14 +11,16 @@ neuron izh_cond_exp2syn:
     inline dV mV = 0.04*V_m*V_m/mV + 5.0*V_m + (140.0 mV - U_m)
     V_m' = dV/ms + (I_e + I_stim + I_exc + I_inh)/C_m
     U_m' = a*(b*V_m - U_m) / ms
-  end
+
+  # Normalization factors for the synaptic conductances to ensure that the
+  # maximum conductance is equal to the synaptic weight.
+  function biexp_scaling_factor(tau1 ms, tau2 ms) real:
+    tpeak ms = tau1*tau2 / (tau2 - tau1) * ln(tau2 / tau1)
+    return 1 / (exp(-tpeak / tau2) - exp(-tpeak / tau1))
 
   internals:
-    tmax_exc ms = tau1_exc*tau2_exc / (tau2_exc - tau1_exc) * ln(tau2_exc / tau1_exc)
-    tmax_inh ms = tau1_inh*tau2_inh / (tau2_inh - tau1_inh) * ln(tau2_inh / tau1_inh)
-    factor_exc real = -exp(-tmax_exc / tau1_exc) + exp(-tmax_exc / tau2_exc)
-    factor_inh real = -exp(-tmax_inh / tau1_inh) + exp(-tmax_inh / tau2_inh)
-  end
+    factor_exc real = biexp_scaling_factor(tau1_exc, tau2_exc)
+    factor_inh real = biexp_scaling_factor(tau1_inh, tau2_inh)
 
   parameters:
     a real = 0.02        # describes time scale of recovery variable
@@ -28,25 +29,24 @@ neuron izh_cond_exp2syn:
     d mV = 8.0 mV        # after-spike reset value of U_m
     I_e pA = 0.0 pA      # constant external input current
     # rise time constant of excitatory synaptic conductance
-    tau1_exc ms = 0.5 ms [[0 < tau1_exc and tau1_exc < tau2_exc]]
+    tau1_exc ms = 0.5 ms [[0 ms < tau1_exc and tau1_exc < tau2_exc]]
     # decay time constant of excitatory synaptic conductance
-    tau2_exc ms = 5.0 ms [[0 < tau1_exc and tau1_exc < tau2_exc]]
+    tau2_exc ms = 5.0 ms [[0 ms < tau1_exc and tau1_exc < tau2_exc]]
     # rise time constant of inhibitory synaptic conductance
-    tau1_inh ms = 0.5 ms [[0 < tau1_inh and tau1_inh < tau2_inh]]
+    tau1_inh ms = 0.5 ms [[0 ms < tau1_inh and tau1_inh < tau2_inh]]
     # decay time constant of inhibitory synaptic conductance
-    tau2_inh ms = 5.0 ms [[0 < tau1_inh and tau1_inh < tau2_inh]]
+    tau2_inh ms = 5.0 ms [[0 ms < tau1_inh and tau1_inh < tau2_inh]]
     E_exc mV = 0.0 mV    # excitatory synaptic reversal potential
     E_inh mV = -80.0 mV  # inhibitory synaptic reversal potential
     C_m pF = 100.0 pF    # membrane capacitance
-  end
 
   input:
-    spike_exc mV <- excitatory spike
-    spike_inh mV <- inhibitory spike
+    spike_exc nS <- excitatory spike
+    spike_inh nS <- inhibitory spike
     I_stim pA <- continuous
-  end
 
-  output: spike
+  output:
+    spike
 
   update:
     integrate_odes()
@@ -56,6 +56,3 @@ neuron izh_cond_exp2syn:
       V_m = c
       U_m += d
       emit_spike()
-    end
-  end
-end

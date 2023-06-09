@@ -1,3 +1,7 @@
+# hippocampus.py
+#
+# Replicate the dentate gyrus network of Buchin et al. 2023, but using NEST
+# and Izhikevich neurons for quick and easy simulation.
 import os
 os.environ['PYNEST_QUIET'] = '1'
 import nest
@@ -10,7 +14,8 @@ plt.ion()
 nest.set_verbosity('M_WARNING')
 from pynestml.frontend.pynestml_frontend import generate_nest_target
 generate_nest_target('models/', '/tmp/nestml-hippocampus/',
-                     module_name='hippocampusmodule')
+                     module_name='hippocampusmodule',
+                     logging_level='WARNING')
 nest.Install('hippocampusmodule')
 
 
@@ -169,8 +174,7 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
                      dict(synapse_model='static_synapse',
                           weight=nest.random.uniform(5*wX, 15*wX)))
 
-    # The focal input is required to give the simulation a kick. Otherwise
-    # it doesn't seize and just has asynchronous irregular activity.
+    # The focal input is required to give the simulation a kick.
     focal = nest.Create('poisson_generator',
                         params=dict(rate=100.0, start=100.0, stop=200.0))
     focal_granule = nest.Create('parrot_neuron', 200)
