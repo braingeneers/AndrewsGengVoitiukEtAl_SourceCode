@@ -20,8 +20,12 @@ def reset_nest(dt, seed):
     nest.local_num_threads = 10
     nest.resolution = dt
     nest.rng_seed = seed
-    nest.CopyModel('izh_cond_exp2syn', 'granule_cell')
-    nest.CopyModel('izh_cond_exp2syn', 'basket_cell')
+    nest.CopyModel('izh_cond_exp2syn', 'granule_cell',
+                   params=dict(tau1_exc=1.5, tau2_exc=5.5,
+                               tau1_inh=0.26, tau2_inh=1.8))
+    nest.CopyModel('izh_cond_exp2syn', 'basket_cell',
+                   params=dict(tau1_exc=0.3, tau2_exc=0.6,
+                               tau1_inh=0.16, tau2_inh=1.8))
 
 
 Weights = namedtuple('Weights', 'EE EI II IE XE FE XI FI')

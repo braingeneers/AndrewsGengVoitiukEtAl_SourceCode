@@ -1,0 +1,56 @@
+neuron izh_cond_exp2syn:
+  state:
+    V_m mV = c
+    U_m mV = b * V_m
+  end
+
+  equations:
+    kernel g_exc = exp(-t / tau2_exc) - exp(-t / tau1_exc)
+    kernel g_inh = exp(-t / tau2_inh) - exp(-t / tau1_inh)
+    inline I_exc pA = factor_exc*convolve(g_exc, spike_exc) * (E_exc - V_m)
+    inline I_inh pA = factor_inh*convolve(g_inh, spike_inh) * (E_inh - V_m)
+    inline dV mV = 0.04*V_m*V_m/mV + 5.0*V_m + (140.0 mV - U_m)
+    V_m' = (dV + (I_e + I_stim + I_exc + I_inh)*GOhm)/ms
+    U_m' = a*(b*V_m - U_m) / ms
+  end
+
+  internals:
+    tmax_exc ms = tau1_exc*tau2_exc / (tau2_exc - tau1_exc) * ln(tau2_exc / tau1_exc)
+    tmax_inh ms = tau1_inh*tau2_inh / (tau2_inh - tau1_inh) * ln(tau2_inh / tau1_inh)
+    factor_exc real = -exp(-tmax_exc / tau1_exc) + exp(-tmax_exc / tau2_exc)
+    factor_inh real = -exp(-tmax_inh / tau1_inh) + exp(-tmax_inh / tau2_inh)
+  end
+
+  parameters:
+    a real = 0.02        # describes time scale of recovery variable
+    b real = 0.2         # sensitivity of recovery variable
+    c mV = -65 mV        # after-spike reset value of V_m
+    d mV = 8.0 mV        # after-spike reset value of U_m
+    I_e pA = 0.0 pA      # constant external input current
+    tau1_exc ms = 0.5 ms # rise time constant of excitatory synaptic conductance
+    tau2_exc ms = 5.0 ms # decay time constant of excitatory synaptic conductance
+    tau1_inh ms = 0.5 ms # rise time constant of inhibitory synaptic conductance
+    tau2_inh ms = 5.0 ms # decay time constant of inhibitory synaptic conductance
+    E_exc mV = 0.0 mV    # excitatory synaptic reversal potential
+    E_inh mV = -80.0 mV  # inhibitory synaptic reversal potential
+  end
+
+  input:
+    spike_exc mV <- excitatory spike
+    spike_inh mV <- inhibitory spike
+    I_stim pA <- continuous
+  end
+
+  output: spike
+
+  update:
+    integrate_odes()
+
+    # threshold crossing
+    if V_m >= 30 mV:
+      V_m = c
+      U_m += d
+      emit_spike()
+    end
+  end
+end
