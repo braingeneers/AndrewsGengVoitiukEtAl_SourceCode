@@ -1,7 +1,10 @@
 import nest
 import numpy as np
 import braingeneers.analysis as ba
+import matplotlib.pyplot as plt
 from collections import namedtuple
+
+plt.ion()
 
 
 def reset_nest(dt, seed):
@@ -9,7 +12,6 @@ def reset_nest(dt, seed):
     nest.local_num_threads = 10
     nest.resolution = dt
     nest.rng_seed = seed
-
     nest.CopyModel('izhikevich', 'granule_cell')
     nest.CopyModel('izhikevich', 'basket_cell')
 
@@ -23,31 +25,15 @@ default_weights = Weights(
     XE=3.3,
     FE=1.0,
     XI=1.5,
-    FI=1.0,
-)
+    FI=1.0)
 
 
-# Some weights that made it kind of almost work? The commented value of EE
-# was very close (basic background activity) but without the big seizures,
-# so I increased it by 0.5 and there are strong traveling seizures.
-test_weights = Weights(
-    # EE=0.3252315790014848,
-    EE=0.8252315790014848,
-    EI=0.06144751886110525,
-    II=12.30122120344486,
-    IE=2.043460990424841,
-    XE=7.035798517061904,
-    FE=0.15162233054392354,
-    XI=0.5029318414532769,
-    FI=0.8824668381047678)
+def random_weights(w=default_weights):
+    return Weights(*np.random.exponential(size=8) * w)
 
 
-def random_weights():
-    return Weights(*np.random.exponential(size=8) * default_weights)
-
-
-def scaled_weights(factor):
-    return Weights(*np.multiply(factor, default_weights))
+def scaled_weights(factor, w=default_weights):
+    return Weights(*np.multiply(factor, w))
 
 
 def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
@@ -57,14 +43,21 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
     N_granule granule cells and N_basket basket cells, based on the dentate
     gyrus network of Buchin et al. 2023.
 
+    The network consists of granule cells and basket cells, but they have
+    been simplified from the original paper; instead of using a set of
+    explicitly optimized neuron parameters, the neurons are Izhikevich
+    neurons with the same parameter distributions as the excitatory and
+    inhibitory cell types from the 2003 paper that introduced the model.
+
     Granule cells and basket cells are arranged in concentric half-circular
-    arcs of radius 1500μm and 750μm, and connectivity is all local. GCs
+    arcs of radius 800μm and 750μm, and connectivity is all local. GCs
     connect to 50 of the 100 closest GCs as well as the 3 closest BCs. BCs
     connect to 100/140 closest GCs as well as their own two closest
     neighbors. There are also Poisson inputs to each neuron.
 
     Instead of randomizing the number of synapses, we just use uniformly
-    distributed weights.
+    distributed weights, equal to a number of synapses times the weight per
+    synapse from the original paper.
 
     The original network used a distinction between dendritic and somatic
     synapses, but this is not implemented here. Instead, the synapses use
@@ -76,11 +69,17 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
     pos_g = nest.spatial.free(
         list(zip(r_g*np.sin(theta_g), r_g*np.cos(theta_g))))
     granule = nest.Create('granule_cell', positions=pos_g)
+    variate = np.random.uniform(size=N_granule)**2
+    granule.c = -65 + 15*variate
+    granule.d = 8 - 6*variate
 
     theta_b = np.linspace(0, np.pi, N_basket)
     pos_b = nest.spatial.free(
         list(zip(r_b*np.sin(theta_b), r_b*np.cos(theta_b))))
     basket = nest.Create('basket_cell', positions=pos_b)
+    variate = np.random.uniform(size=N_basket)
+    basket.a = 0.02 + 0.08*variate
+    basket.b = 0.25 - 0.05*variate
 
     def r_kth_nearest(radius, N, k):
         'The distance to the kth nearest neighbor on a half-circle.'
@@ -177,21 +176,3 @@ def sim(T=1e3, dt=0.1, seed=42, **kwargs):
         ba.SpikeData(rec, layer, N=len(layer), length=T)
         for layer in (granule, basket)]
     return ba.SpikeData(sdg.train + sdb.train, length=T)
-
-sd = sim(w=test_weights)
-print(f'FR = {sd.rates("Hz").mean()}')
-idces, times = sd.idces_times()
-plt.figure()
-plt.plot(*sd.idces_times()[::-1], ',')
-
-# ws = []
-# for i in range(20):
-#     # ws.append(scaled_weights(0.2*(i+1)))
-#     ws.append(random_weights())
-#     sd = sim(seed=42, w=ws[-1])
-#     print(f'Culture {i} FR = {sd.rates("Hz").mean()}')
-#     idces, times = sd.idces_times()
-#     if max(times) > 250:
-#         plt.figure()
-#         plt.title(f'Culture {i}')
-#         plt.plot(*sd.idces_times()[::-1], ',')
