@@ -5,6 +5,14 @@ import matplotlib.pyplot as plt
 from collections import namedtuple
 
 plt.ion()
+nest.set_verbosity('M_WARNING')
+from pynestml.frontend.pynestml_frontend import generate_nest_target
+generate_nest_target('models/', '/tmp/nestml-hippocampus/',
+                     module_name='hippocampusmodule')
+nest.Install('hippocampusmodule')
+
+
+# %%
 
 
 def reset_nest(dt, seed):
@@ -12,8 +20,8 @@ def reset_nest(dt, seed):
     nest.local_num_threads = 10
     nest.resolution = dt
     nest.rng_seed = seed
-    nest.CopyModel('izhikevich', 'granule_cell')
-    nest.CopyModel('izhikevich', 'basket_cell')
+    nest.CopyModel('izh_cond_exp2syn', 'granule_cell')
+    nest.CopyModel('izh_cond_exp2syn', 'basket_cell')
 
 
 Weights = namedtuple('Weights', 'EE EI II IE XE FE XI FI')
@@ -43,7 +51,6 @@ def scaled_weights(factor, w=default_weights):
         case None | 'random':
             x = np.random.exponential(size=8)
         case [e, i]:
-            # x = np.array([e, i, i, e, e, e, i, i])
             x = np.array([e, e, i, i, e, e, e, e])
         case _:
             x = np.asarray(factor)
