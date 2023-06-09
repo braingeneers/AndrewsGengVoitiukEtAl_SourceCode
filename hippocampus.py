@@ -28,12 +28,26 @@ default_weights = Weights(
     FI=1.0)
 
 
-def random_weights(w=default_weights):
-    return Weights(*np.random.exponential(size=8) * w)
-
-
 def scaled_weights(factor, w=default_weights):
-    return Weights(*np.multiply(factor, w))
+    '''
+    Create a rescaled version of the weights w. There are four variants:
+     1. For scalar `factor`, multiply all the weights by this value
+     2. For tuple `(fe, fi)`, multiply the excitatory weights by `fe` and
+        inhibitory weights by `fi`.
+     3. For vector `factor`, multiply each weight by the corresponding
+        element of the vector.
+     4. For None, generate a vector of 8 random numbers from an exponential
+        distribution.
+    '''
+    match factor:
+        case None | 'random':
+            x = np.random.exponential(size=8)
+        case [e, i]:
+            # x = np.array([e, i, i, e, e, e, i, i])
+            x = np.array([e, e, i, i, e, e, e, e])
+        case _:
+            x = np.asarray(factor)
+    return Weights(*x*w)
 
 
 def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
@@ -90,7 +104,6 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
     # grabs the 100 nearest neighbors, and a fixed degree of 50. Note that
     # this means going for the 50th-nearest neighbor, as the radius extends
     # in both directions.
-    # AMPA_ExcToExc_GC_GC
     nest.Connect(granule, granule,
                  dict(rule='fixed_outdegree', outdegree=50,
                       mask=dict(circular=dict(
@@ -100,7 +113,6 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
                       weight=w.EE * nest.random.uniform(2, 5)))
 
     # Likewise for the BCs, but they only connect to immediate neighbors.
-    # GABA_InhToInh_BC_BC
     nest.Connect(basket, basket,
                  dict(rule='pairwise_bernoulli', p=1.0,
                       mask=dict(circular=dict(
@@ -125,7 +137,6 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
                      dict(synapse_model='static_synapse', delay=0.8,
                           weight=-nest.random.uniform(2*w.IE, 5*w.IE)))
 
-    # AMPA_ExctoInh_GC_BC
     for g, θ in zip(granule, theta_g):
         θb = np.clip(θ, theta_b[1], theta_b[-2])
         mask = nest.CreateMask(
@@ -145,7 +156,8 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
                      dict(synapse_model='static_synapse',
                           weight=nest.random.uniform(5*wX, 15*wX)))
 
-    # The focal input is required to give the simulation a kick.
+    # The focal input is required to give the simulation a kick. Otherwise
+    # it doesn't seize and just has asynchronous irregular activity.
     focal = nest.Create('poisson_generator',
                         params=dict(rate=100.0, start=100.0, stop=200.0))
     focal_granule = nest.Create('parrot_neuron', 200)
@@ -176,3 +188,14 @@ def sim(T=1e3, dt=0.1, seed=42, **kwargs):
         ba.SpikeData(rec, layer, N=len(layer), length=T)
         for layer in (granule, basket)]
     return ba.SpikeData(sdg.train + sdb.train, length=T)
+
+
+scales = []
+for i in range(20):
+    scale = np.random.exponential(3), np.random.exponential(0.5)
+    scales.append(scale)
+    sd = sim(w=scaled_weights(scales[-1]))
+    idces, times = sd.idces_times()
+    print(f'Culture {i} FR = {sd.rates("Hz").mean():.2f} Hz')
+    plt.figure(i)
+    plt.plot(times, idces, '.', ms=1)
