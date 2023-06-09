@@ -1,3 +1,5 @@
+import os
+os.environ['PYNEST_QUIET'] = '1'
 import nest
 import numpy as np
 import braingeneers.analysis as ba
@@ -203,7 +205,7 @@ def sim(T=1e3, dt=0.1, seed=42, **kwargs):
 
 scales = []
 for i in range(20):
-    scale = np.random.exponential(3), np.random.exponential(0.5)
+    scale = np.random.exponential(), np.random.exponential()
     scales.append(scale)
     sd = sim(w=scaled_weights(scales[-1]))
     idces, times = sd.idces_times()
