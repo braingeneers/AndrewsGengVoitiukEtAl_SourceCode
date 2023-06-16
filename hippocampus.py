@@ -213,13 +213,11 @@ def sim(T=1e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15, **kwargs):
                 last_n_events = rec.n_events
                 if time_to_enable_opto > 0:
                     time_to_enable_opto -= 1
-                    if time_to_enable_opto == 0:
-                        granule.opto = False
+                granule.opto = time_to_enable_opto > 0
                 nest.Run(1.0)
                 pbar.update()
                 new_spikes = rec.n_events - last_n_events
                 if time_to_enable_opto == 0 and new_spikes > opto_threshold:
-                    granule.opto = True
                     time_to_enable_opto = opto_duration
                     opto_times.append(t)
     # This is a little weird, but I want to use the spike train extraction
@@ -233,8 +231,15 @@ def sim(T=1e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15, **kwargs):
                         metadata=dict(opto_times=opto_times))
 
 
+# %%
+# Run the simulation with three different levels of optogenetic activation.
+# The parameter p_opto being swept controls what fraction of the granule
+# cells respond to the optogenetic feedback that is used for feedback.
+# Plot two different figures of the same results, one in terms of rasters,
+# and one in terms of population rate.
+
 sds = []
-for p_opto in [0.0, 0.3, 0.5, 1.0]:
+for p_opto in [0.0, 0.5, 1.0]:
     sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0, p_opto=p_opto)
     idces, times = sd.subtime(1000, ...).idces_times()
     print(f'With {p_opto = :.0%}, '
@@ -243,7 +248,7 @@ for p_opto in [0.0, 0.3, 0.5, 1.0]:
     sd.metadata['p_opto'] = p_opto
     sds.append(sd)
 
-f = plt.figure(figsize=(6.4, 6.4))
+f = plt.figure('Raster Varying p_opto', figsize=(6.4, 6.4))
 axes = f.subplots(len(sds), 1)
 for ax, sd in zip(axes, sds):
     idces, times = sd.subtime(1000, ...).idces_times()
@@ -258,3 +263,113 @@ axes[-1].set_xlabel('Time (sec)')
 if input('Save? [y/N] ').strip().lower().startswith('y'):
     f.savefig('opto.png', bbox_inches='tight', dpi=600)
     f.savefig('opto.pdf', bbox_inches='tight')
+
+f = plt.figure('Population Rate Varying p_opto', figsize=(6.4, 6.4))
+axes = f.subplots(len(sds), 1)
+for ax, sd in zip(axes, sds):
+    ax.plot(sd.binned(1)[1000:])
+    ax.set_ylabel(f'$p_\\text{{opto}} = {100*sd.metadata["p_opto"]:.0f}\\%$')
+    xlim = ax.get_xlim()
+    ax.set_xticks([])
+    ax.set_ylim(0, 300)
+ticks = np.array([0, 10, 20])
+axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
+axes[-1].set_xlabel('Time (sec)')
+if input('Save? [y/N] ').strip().lower().startswith('y'):
+    f.savefig('opto_rates.png', bbox_inches='tight', dpi=600)
+    f.savefig('opto_rates.pdf', bbox_inches='tight')
+
+
+# %%
+# Run the same simulation again, this time varying the duration of the opto
+# with a fixed 50% efficacy.
+
+sds = []
+for opto_duration in [0, 10, 20, 50, 100]:
+    sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0, p_opto=0.5,
+             opto_duration=opto_duration)
+    idces, times = sd.subtime(1000, ...).idces_times()
+    print(f'With {opto_duration = } ms, '
+          f'FR was {sd.rates("Hz").mean():.2f} Hz. '
+          f'Did opto {len(sd.metadata["opto_times"])} times.')
+    sd.metadata['opto_duration'] = opto_duration
+    sds.append(sd)
+
+f = plt.figure('Raster Varying Opto Duration', figsize=(6.4, 6.4))
+axes = f.subplots(len(sds), 1)
+for ax, sd in zip(axes, sds):
+    idces, times = sd.subtime(1000, ...).idces_times()
+    ax.plot(times, idces, '.', ms=0.1)
+    ax.set_yticks([])
+    ax.set_ylabel(f'$T_\\text{{opto}} = {sd.metadata["opto_duration"]}\\text{{ms}}$')
+    xlim = ax.get_xlim()
+    ax.set_xticks([])
+ticks = np.array([0, 10, 20])
+axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
+axes[-1].set_xlabel('Time (sec)')
+if input('Save? [y/N] ').strip().lower().startswith('y'):
+    f.savefig('opto-duration.png', bbox_inches='tight', dpi=600)
+    f.savefig('opto-duration.pdf', bbox_inches='tight')
+
+f = plt.figure('Population Rate Varying Opto Duration', figsize=(6.4, 6.4))
+axes = f.subplots(len(sds), 1)
+for ax, sd in zip(axes, sds):
+    ax.plot(sd.binned(1)[1000:])
+    ax.set_ylabel(f'$T_\\text{{opto}} = {sd.metadata["opto_duration"]}\\text{{ms}}$')
+    xlim = ax.get_xlim()
+    ax.set_xticks([])
+    ax.set_ylim(0, 300)
+ticks = np.array([0, 10, 20])
+axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
+axes[-1].set_xlabel('Time (sec)')
+if input('Save? [y/N] ').strip().lower().startswith('y'):
+    f.savefig('opto-duration_rates.png', bbox_inches='tight', dpi=600)
+    f.savefig('opto-duration_rates.pdf', bbox_inches='tight')
+
+
+# %%
+# Run the same simulation one last time, this time varying the threshold
+# where the opto is applied, with the fixed 50% efficacy from before, and
+# a duration of 30 ms.
+
+sds = []
+for opto_threshold in [np.inf, 200, 100, 50]:
+    sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0, p_opto=0.5,
+             opto_duration=30, opto_threshold=opto_threshold)
+    idces, times = sd.subtime(1000, ...).idces_times()
+    print(f'With {opto_duration = } ms, '
+          f'FR was {sd.rates("Hz").mean():.2f} Hz. '
+          f'Did opto {len(sd.metadata["opto_times"])} times.')
+    sd.metadata['opto_threshold'] = opto_threshold
+    sds.append(sd)
+
+f = plt.figure('Raster Varying Opto Duration', figsize=(6.4, 6.4))
+axes = f.subplots(len(sds), 1)
+for ax, sd in zip(axes, sds):
+    idces, times = sd.subtime(1000, ...).idces_times()
+    ax.plot(times, idces, '.', ms=0.1)
+    ax.set_yticks([])
+    ax.set_ylabel(f'$r_\\text{{opto}} = {sd.metadata["opto_threshold"]}$')
+    xlim = ax.get_xlim()
+    ax.set_xticks([])
+ticks = np.array([0, 10, 20])
+axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
+axes[-1].set_xlabel('Time (sec)')
+if input('Save? [y/N] ').strip().lower().startswith('y'):
+    f.savefig('opto-threshold.png', bbox_inches='tight', dpi=600)
+    f.savefig('opto-threshold.pdf', bbox_inches='tight')
+
+f = plt.figure('Population Rate Varying Opto Duration', figsize=(6.4, 6.4))
+axes = f.subplots(len(sds), 1)
+for ax, sd in zip(axes, sds):
+    ax.plot(sd.binned(1)[1000:])
+    ax.set_ylabel(f'$r_\\text{{opto}} = {sd.metadata["opto_threshold"]}$')
+    xlim = ax.get_xlim()
+    ax.set_xticks([])
+    ax.set_ylim(0, 300)
+ticks = np.array([0, 10, 20])
+axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
+axes[-1].set_xlabel('Time (sec)')
+if input('Save? [y/N] ').strip().lower().startswith('y'):
+    f.savefig('opto-threshold_rates.png', bbox_inches='tight', dpi=600)
+    f.savefig('opto-threshold_rates.pdf', bbox_inches='tight')
