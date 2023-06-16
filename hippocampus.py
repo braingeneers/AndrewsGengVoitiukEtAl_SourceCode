@@ -9,6 +9,7 @@ import numpy as np
 import braingeneers.analysis as ba
 import matplotlib.pyplot as plt
 from collections import namedtuple
+from tqdm import tqdm
 
 plt.ion()
 nest.set_verbosity('M_WARNING')
@@ -68,9 +69,8 @@ def scaled_weights(factor, w=default_weights):
     return Weights(*x*w)
 
 
-def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
-                         N_perforant:int=50,
-                         w=default_weights):
+def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
+                         p_opto=0.0, g_opto=20.0, w=default_weights):
     '''
     Create a dentate gyrus network for a NEST simulation, consisting of
     N_granule granule cells and N_basket basket cells, based on the dentate
@@ -106,6 +106,7 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
     granule.c = -65 + 15*variate
     granule.d = 8 - 6*variate
     granule.V_m = -70 + 5*variate
+    granule.g_opto = g_opto * (np.random.rand(N_granule) < p_opto)
 
     theta_b = np.linspace(0, np.pi, N_basket)
     pos_b = nest.spatial.free(
@@ -130,7 +131,7 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
                       mask=dict(circular=dict(
                           radius=r_kth_nearest(r_g, N_granule, 50))),
                       allow_autapses=False),
-                 dict(synapse_model='static_synapse', delay=0.8,
+                 dict(synapse_model='static_synapse', delay=1.0,
                       weight=w.EE * nest.random.uniform(2, 5)))
 
     # Likewise for the BCs, but instead of including a fixed number of
@@ -141,7 +142,7 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
                       mask=dict(circular=dict(
                           radius=r_kth_nearest(r_b, 6, 1.1))),
                       allow_autapses=False),
-                 dict(synapse_model='static_synapse', delay=0.8,
+                 dict(synapse_model='static_synapse', delay=1.0,
                       weight=-w.II * nest.random.uniform(2, 5)))
 
     # For between-population connections, find the nearest point in the
@@ -156,7 +157,7 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
             granule, [r_g*np.sin(θg), r_g*np.cos(θg)], mask)
         nest.Connect(b, neighbors,
                      dict(rule='fixed_outdegree', outdegree=100),
-                     dict(synapse_model='static_synapse', delay=0.8,
+                     dict(synapse_model='static_synapse', delay=1.0,
                           weight=-nest.random.uniform(2*w.IE, 5*w.IE)))
 
     for g, θ in zip(granule, theta_g):
@@ -167,7 +168,7 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
             basket, [r_b*np.sin(θb), r_b*np.cos(θb)], mask)
         nest.Connect(g, neighbors,
                      dict(rule='pairwise_bernoulli', p=1.0),
-                     dict(synapse_model='static_synapse', delay=0.8,
+                     dict(synapse_model='static_synapse', delay=1.0,
                           weight=nest.random.uniform(2*w.EI, 5*w.EI)))
 
     # Finally create the Poisson inputs to all of this...
@@ -198,13 +199,29 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
     return granule, basket
 
 
-def sim(T=1e3, dt=0.1, seed=42, **kwargs):
+def sim(T=1e3, dt=0.1, seed=42, threshold=100, **kwargs):
     reset_nest(dt, seed)
     granule, basket = create_dentate_gyrus(**kwargs)
     rec = nest.Create('spike_recorder')
     nest.Connect(granule, rec)
     nest.Connect(basket, rec)
-    nest.Simulate(T)
+    opto_times = []
+    with tqdm(total=T) as pbar:
+        with nest.RunManager():
+            time_to_enable_opto = 0
+            for t in range(int(T)):
+                last_n_events = rec.n_events
+                if time_to_enable_opto > 0:
+                    time_to_enable_opto -= 1
+                    if time_to_enable_opto == 0:
+                        granule.opto = False
+                nest.Run(1.0)
+                pbar.update()
+                new_spikes = rec.n_events - last_n_events
+                if time_to_enable_opto == 0 and new_spikes > threshold:
+                    granule.opto = True
+                    time_to_enable_opto = 10
+                    opto_times.append(t)
     # This is a little weird, but I want to use the spike train extraction
     # code I wrote for SpikeData, but NEST NodeCollections can't be combined
     # once they have spatial metadata etc. Instead, create a SpikeData per
@@ -212,10 +229,15 @@ def sim(T=1e3, dt=0.1, seed=42, **kwargs):
     sdg, sdb = [
         ba.SpikeData(rec, layer, N=len(layer), length=T)
         for layer in (granule, basket)]
-    return ba.SpikeData(sdg.train + sdb.train, length=T)
+    return ba.SpikeData(sdg.train + sdb.train, length=T,
+                        metadata=dict(opto_times=opto_times))
 
 
-sd = sim(N_granule=1000, N_basket=20, T=1e4, N_perforant=0)
-idces, times = sd.idces_times()
-print(f'FR = {sd.rates("Hz").mean():.2f} Hz')
-plt.plot(times, idces, '.', ms=1)
+for p_opto in np.arange(11)/10:
+    sd = sim(N_granule=1000, N_basket=12, T=1e4, N_perforant=0, p_opto=p_opto)
+    idces, times = sd.idces_times()
+    print(f'With {p_opto = :.2f},')
+    print(f'  FR was {sd.rates("Hz").mean():.2f} Hz.')
+    print(f'  Did opto {len(sd.metadata["opto_times"])} times.')
+    plt.figure()
+    plt.plot(times, idces, '.', ms=1)
