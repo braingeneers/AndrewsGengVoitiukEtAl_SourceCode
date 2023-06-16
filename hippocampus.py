@@ -244,11 +244,16 @@ def plot_sds(f, sds):
         idces, times = sd.subtime(1000, ...).idces_times()
         ax.plot(times, idces, '.', ms=0.1)
         ax.set_yticks([])
-        optos = np.array(sd.metadata['opto_times']) - 1000
-        optos = optos[optos >= 0]
-        ax.plot(optos, -5+0*optos, 'g.')
-        xlim = ax.get_xlim()
         ax.set_xticks([])
+        ax.set_xlim(0, 2e3)
+        opto_duration = sd.metadata['opto_duration']
+        optos = np.array(sd.metadata['opto_times']) - 1000
+        if len(optos) > 0 and opto_duration > 0:
+            optos = np.hstack([start + np.arange(opto_duration)
+                               for start in optos])
+            optos = optos[optos >= 0]
+            ax.plot(optos, -25+0*optos, 'g.', ms=0.5)
+        xlim = ax.get_xlim()
         ax2 = ax.twinx()
         ax2.plot(sd.binned(1)[1000:], 'k', lw=0.75)
         ax2.set_yticks([0, 300])
@@ -272,25 +277,28 @@ def query_save(f, name):
 # Plot two different figures of the same results, one in terms of rasters,
 # and one in terms of population rate.
 
-sds = []
+sds_fraction = []
 for p_opto in [0.0, 0.5, 1.0]:
-    sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0, p_opto=p_opto)
+    sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0,
+             p_opto=p_opto, opto_duration=50)
     idces, times = sd.subtime(1000, ...).idces_times()
     print(f'With {p_opto = :.0%}, '
           f'FR was {sd.rates("Hz").mean():.2f} Hz. '
           f'Did opto {len(sd.metadata["opto_times"])} times.')
-    sds.append(sd)
+    sds_fraction.append(sd)
 
 f = plt.figure('Varying Optogenetically Active Cells', figsize=(6.4, 6.4))
-axes = plot_sds(f, sds)
-for sd, ax in zip(sds, axes):
+axes = plot_sds(f, sds_fraction)
+for sd, ax in zip(sds_fraction, axes):
     ax.set_ylabel(f'$p_\\text{{opto}} = {100*sd.metadata["p_opto"]:.0f}\\%$')
+
+query_save(f, 'opto-fraction.png')
 
 # %%
 # Run the same simulation again, this time varying the duration of the opto
 # with a fixed 50% efficacy.
 
-sds = []
+sds_duration = []
 for opto_duration in [0, 10, 50, 100]:
     sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0, p_opto=0.5,
              opto_duration=opto_duration)
@@ -298,29 +306,34 @@ for opto_duration in [0, 10, 50, 100]:
     print(f'With {opto_duration = } ms, '
           f'FR was {sd.rates("Hz").mean():.2f} Hz. '
           f'Did opto {len(sd.metadata["opto_times"])} times.')
-    sds.append(sd)
+    sds_duration.append(sd)
 
 f = plt.figure('Raster Varying Opto Duration', figsize=(6.4, 6.4))
-axes = plot_sds(f, sds)
-for sd, ax in zip(sds, axes):
+axes = plot_sds(f, sds_duration)
+axes[0].set_ylabel('No Opto')
+for sd, ax in zip(sds_duration, axes):
     ax.set_ylabel(f'$T_\\text{{opto}} = {sd.metadata["opto_duration"]}\\text{{ms}}$')
+
+query_save(f, 'opto-duration.png')
 
 # %%
 # Run the same simulation one last time, this time varying the threshold
 # where the opto is applied, with the fixed 50% efficacy from before, and
 # a duration of 30 ms.
 
-sds = []
+sds_threshold = []
 for opto_threshold in [np.inf, 200, 100, 50]:
     sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0, p_opto=0.5,
              opto_duration=30, opto_threshold=opto_threshold)
     idces, times = sd.subtime(1000, ...).idces_times()
-    print(f'With {opto_duration = } ms, '
+    print(f'With {opto_threshold = } ms, '
           f'FR was {sd.rates("Hz").mean():.2f} Hz. '
           f'Did opto {len(sd.metadata["opto_times"])} times.')
-    sds.append(sd)
+    sds_threshold.append(sd)
 
 f = plt.figure('Raster Varying Opto Threshold', figsize=(6.4, 6.4))
-axes = plot_sds(f, sds)
-for sd, ax in zip(sds, axes):
+axes = plot_sds(f, sds_threshold)
+for sd, ax in zip(sds_threshold, axes):
     ax.set_ylabel(f'$r_\\text{{opto}} = {sd.metadata["opto_threshold"]}$')
+
+query_save(f, 'opto-threshold.png')
