@@ -24,7 +24,7 @@ nest.Install('hippocampusmodule')
 
 def reset_nest(dt, seed):
     nest.ResetKernel()
-    nest.local_num_threads = 10
+    nest.local_num_threads = 12
     nest.resolution = dt
     nest.rng_seed = seed
     nest.CopyModel('izh_cond_exp2syn', 'granule_cell',
@@ -69,6 +69,7 @@ def scaled_weights(factor, w=default_weights):
 
 
 def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
+                         N_perforant:int=50,
                          w=default_weights):
     '''
     Create a dentate gyrus network for a NEST simulation, consisting of
@@ -149,7 +150,6 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
             'circular', dict(radius=r_kth_nearest(r_g, N_granule, 70)))
         neighbors = nest.SelectNodesByMask(
             granule, [r_g*np.sin(θg), r_g*np.cos(θg)], mask)
-        assert len(neighbors) == 140
         nest.Connect(b, neighbors,
                      dict(rule='fixed_outdegree', outdegree=100),
                      dict(synapse_model='static_synapse', delay=0.8,
@@ -161,7 +161,6 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
             'circular', dict(radius=r_kth_nearest(r_b, N_basket, 1.5)))
         neighbors = nest.SelectNodesByMask(
             basket, [r_b*np.sin(θb), r_b*np.cos(θb)], mask)
-        assert len(neighbors) == 3
         nest.Connect(g, neighbors,
                      dict(rule='pairwise_bernoulli', p=1.0),
                      dict(synapse_model='static_synapse', delay=0.8,
@@ -174,18 +173,23 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
                      dict(synapse_model='static_synapse',
                           weight=nest.random.uniform(5*wX, 15*wX)))
 
-    # The focal input is required to give the simulation a kick.
-    focal = nest.Create('poisson_generator',
-                        params=dict(rate=100.0, start=100.0, stop=200.0))
-    focal_granule = nest.Create('parrot_neuron', 200)
-    nest.Connect(focal, focal_granule, 'all_to_all')
-    nest.Connect(focal_granule, granule,
-                 dict(rule='fixed_indegree', indegree=100),
-                 dict(synapse_model='static_synapse',
-                      weight=nest.random.uniform(5*w.FE, 15*w.FE)))
-    nest.Connect(focal, basket, 'all_to_all',
-                 dict(synapse_model='static_synapse',
-                      weight=nest.random.uniform(10*w.FI, 30*w.FI)))
+    # The focal input is required to give the simulation a kick. It comes
+    # through the "perforant path", which is supposed to trigger one lamella
+    # of the hippocampus at a time, in this case just N_perforant adjacent
+    # cells from the middle of the granule cell layer.
+    if N_perforant > 0:
+        focal = nest.Create('poisson_generator',
+                            params=dict(rate=100.0, start=100.0, stop=200.0))
+        focal_granule = nest.Create('parrot_neuron', 200)
+        nest.Connect(focal, focal_granule, 'all_to_all')
+        n = N_perforant//2
+        nest.Connect(focal_granule, granule[N_granule//2-n:N_granule//2+n],
+                     dict(rule='fixed_indegree', indegree=100),
+                     dict(synapse_model='static_synapse',
+                          weight=nest.random.uniform(5*w.FE, 15*w.FE)))
+        nest.Connect(focal, basket, 'all_to_all',
+                     dict(synapse_model='static_synapse',
+                          weight=nest.random.uniform(10*w.FI, 30*w.FI)))
 
     return granule, basket
 
