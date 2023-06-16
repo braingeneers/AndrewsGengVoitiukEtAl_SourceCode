@@ -70,7 +70,7 @@ def scaled_weights(factor, w=default_weights):
 
 
 def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
-                         p_opto=0.0, g_opto=20.0, w=default_weights):
+                         p_opto=0.0, g_opto=100.0, w=default_weights):
     '''
     Create a dentate gyrus network for a NEST simulation, consisting of
     N_granule granule cells and N_basket basket cells, based on the dentate
@@ -199,7 +199,7 @@ def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
     return granule, basket
 
 
-def sim(T=1e3, dt=0.1, seed=42, threshold=100, **kwargs):
+def sim(T=1e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15, **kwargs):
     reset_nest(dt, seed)
     granule, basket = create_dentate_gyrus(**kwargs)
     rec = nest.Create('spike_recorder')
@@ -218,9 +218,9 @@ def sim(T=1e3, dt=0.1, seed=42, threshold=100, **kwargs):
                 nest.Run(1.0)
                 pbar.update()
                 new_spikes = rec.n_events - last_n_events
-                if time_to_enable_opto == 0 and new_spikes > threshold:
+                if time_to_enable_opto == 0 and new_spikes > opto_threshold:
                     granule.opto = True
-                    time_to_enable_opto = 10
+                    time_to_enable_opto = opto_duration
                     opto_times.append(t)
     # This is a little weird, but I want to use the spike train extraction
     # code I wrote for SpikeData, but NEST NodeCollections can't be combined
@@ -233,11 +233,28 @@ def sim(T=1e3, dt=0.1, seed=42, threshold=100, **kwargs):
                         metadata=dict(opto_times=opto_times))
 
 
-for p_opto in np.arange(11)/10:
-    sd = sim(N_granule=1000, N_basket=12, T=1e4, N_perforant=0, p_opto=p_opto)
-    idces, times = sd.idces_times()
-    print(f'With {p_opto = :.2f},')
-    print(f'  FR was {sd.rates("Hz").mean():.2f} Hz.')
-    print(f'  Did opto {len(sd.metadata["opto_times"])} times.')
-    plt.figure()
-    plt.plot(times, idces, '.', ms=1)
+sds = []
+for p_opto in [0.0, 0.3, 0.5, 1.0]:
+    sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0, p_opto=p_opto)
+    idces, times = sd.subtime(1000, ...).idces_times()
+    print(f'With {p_opto = :.0%}, '
+          f'FR was {sd.rates("Hz").mean():.2f} Hz. '
+          f'Did opto {len(sd.metadata["opto_times"])} times.')
+    sd.metadata['p_opto'] = p_opto
+    sds.append(sd)
+
+f = plt.figure(figsize=(6.4, 6.4))
+axes = f.subplots(len(sds), 1)
+for ax, sd in zip(axes, sds):
+    idces, times = sd.subtime(1000, ...).idces_times()
+    ax.plot(times, idces, '.', ms=0.1)
+    ax.set_yticks([])
+    ax.set_ylabel(f'$p_\\text{{opto}} = {100*sd.metadata["p_opto"]:.0f}\\%$')
+    xlim = ax.get_xlim()
+    ax.set_xticks([])
+ticks = np.array([0, 10, 20])
+axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
+axes[-1].set_xlabel('Time (sec)')
+if input('Save? [y/N] ').strip().lower().startswith('y'):
+    f.savefig('opto.png', bbox_inches='tight', dpi=600)
+    f.savefig('opto.pdf', bbox_inches='tight')
