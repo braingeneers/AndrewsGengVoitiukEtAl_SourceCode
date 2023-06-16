@@ -2,14 +2,17 @@ neuron izh_cond_exp2syn:
   state:
     V_m mV = c
     U_m mV = b * V_m
+    opto boolean = false
+    bicuc real = 0.0
 
   equations:
     kernel g_exc = exp(-t / tau2_exc) - exp(-t / tau1_exc)
-    kernel g_inh = exp(-t / tau2_inh) - exp(-t / tau1_inh)
+    kernel g_inh = exp(-bicuc) * (exp(-t / tau2_inh) - exp(-t / tau1_inh))
     inline I_exc pA = factor_exc*convolve(g_exc, spike_exc) * (E_exc - V_m)
     inline I_inh pA = factor_inh*convolve(g_inh, spike_inh) * (E_inh - V_m)
+    inline I_opto pA = g_opto * (c - V_m) * opto
     inline dV mV = 0.04*V_m*V_m/mV + 5.0*V_m + (140.0 mV - U_m)
-    V_m' = dV/ms + (I_e + I_stim + I_exc + I_inh)/C_m
+    V_m' = dV/ms + (I_e + I_stim + I_exc + I_inh + I_opto)/C_m
     U_m' = a*(b*V_m - U_m) / ms
 
   # Normalization factors for the synaptic conductances to ensure that the
@@ -39,6 +42,7 @@ neuron izh_cond_exp2syn:
     E_exc mV = 0.0 mV    # excitatory synaptic reversal potential
     E_inh mV = -80.0 mV  # inhibitory synaptic reversal potential
     C_m pF = 100.0 pF    # membrane capacitance
+    g_opto nS = 0.0 nS   # conductance when the optogenetic switch is on
 
   input:
     spike_exc nS <- excitatory spike
