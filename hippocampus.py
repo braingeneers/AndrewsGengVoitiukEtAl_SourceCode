@@ -28,10 +28,10 @@ def reset_nest(dt, seed):
     nest.resolution = dt
     nest.rng_seed = seed
     nest.CopyModel('izh_cond_exp2syn', 'granule_cell',
-                   params=dict(tau1_exc=1.5, tau2_exc=5.5,
+                   params=dict(C_m=65.0, tau1_exc=1.5, tau2_exc=5.5,
                                tau1_inh=0.26, tau2_inh=1.8))
     nest.CopyModel('izh_cond_exp2syn', 'basket_cell',
-                   params=dict(tau1_exc=0.3, tau2_exc=0.6,
+                   params=dict(C_m=150.0, tau1_exc=0.3, tau2_exc=0.6,
                                tau1_inh=0.16, tau2_inh=1.8))
 
 
@@ -105,6 +105,7 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
     variate = np.random.uniform(size=N_granule)**2
     granule.c = -65 + 15*variate
     granule.d = 8 - 6*variate
+    granule.V_m = -70 + 5*variate
 
     theta_b = np.linspace(0, np.pi, N_basket)
     pos_b = nest.spatial.free(
@@ -113,6 +114,7 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
     variate = np.random.uniform(size=N_basket)
     basket.a = 0.02 + 0.08*variate
     basket.b = 0.25 - 0.05*variate
+    basket.V_m = -70 + 5*variate
 
     def r_kth_nearest(radius, N, k):
         'The distance to the kth nearest neighbor on a half-circle.'
@@ -131,11 +133,13 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
                  dict(synapse_model='static_synapse', delay=0.8,
                       weight=w.EE * nest.random.uniform(2, 5)))
 
-    # Likewise for the BCs, but they only connect to immediate neighbors.
+    # Likewise for the BCs, but instead of including a fixed number of
+    # neighbors, the radius is fixed to capture one neighbor in the original
+    # formulation with only 6 BCs.
     nest.Connect(basket, basket,
                  dict(rule='pairwise_bernoulli', p=1.0,
                       mask=dict(circular=dict(
-                          radius=r_kth_nearest(r_b, N_basket, 1.5))),
+                          radius=r_kth_nearest(r_b, 6, 1.1))),
                       allow_autapses=False),
                  dict(synapse_model='static_synapse', delay=0.8,
                       weight=-w.II * nest.random.uniform(2, 5)))
@@ -158,7 +162,7 @@ def create_dentate_gyrus(N_granule:int=500, N_basket:int=6,
     for g, θ in zip(granule, theta_g):
         θb = np.clip(θ, theta_b[1], theta_b[-2])
         mask = nest.CreateMask(
-            'circular', dict(radius=r_kth_nearest(r_b, N_basket, 1.5)))
+            'circular', dict(radius=r_kth_nearest(r_b, 6, 1.5)))
         neighbors = nest.SelectNodesByMask(
             basket, [r_b*np.sin(θb), r_b*np.cos(θb)], mask)
         nest.Connect(g, neighbors,
@@ -211,12 +215,7 @@ def sim(T=1e3, dt=0.1, seed=42, **kwargs):
     return ba.SpikeData(sdg.train + sdb.train, length=T)
 
 
-scales = []
-for i in range(20):
-    scale = np.random.exponential(), np.random.exponential()
-    scales.append(scale)
-    sd = sim(w=scaled_weights(scales[-1]))
-    idces, times = sd.idces_times()
-    print(f'Culture {i} FR = {sd.rates("Hz").mean():.2f} Hz')
-    plt.figure(i)
-    plt.plot(times, idces, '.', ms=1)
+sd = sim(N_granule=1000, N_basket=20, T=1e4, N_perforant=0)
+idces, times = sd.idces_times()
+print(f'FR = {sd.rates("Hz").mean():.2f} Hz')
+plt.plot(times, idces, '.', ms=1)
