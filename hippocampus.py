@@ -262,7 +262,6 @@ axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
 axes[-1].set_xlabel('Time (sec)')
 if input('Save? [y/N] ').strip().lower().startswith('y'):
     f.savefig('opto.png', bbox_inches='tight', dpi=600)
-    f.savefig('opto.pdf', bbox_inches='tight')
 
 f = plt.figure('Population Rate Varying p_opto', figsize=(6.4, 6.4))
 axes = f.subplots(len(sds), 1)
@@ -277,7 +276,6 @@ axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
 axes[-1].set_xlabel('Time (sec)')
 if input('Save? [y/N] ').strip().lower().startswith('y'):
     f.savefig('opto_rates.png', bbox_inches='tight', dpi=600)
-    f.savefig('opto_rates.pdf', bbox_inches='tight')
 
 
 # %%
@@ -309,7 +307,6 @@ axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
 axes[-1].set_xlabel('Time (sec)')
 if input('Save? [y/N] ').strip().lower().startswith('y'):
     f.savefig('opto-duration.png', bbox_inches='tight', dpi=600)
-    f.savefig('opto-duration.pdf', bbox_inches='tight')
 
 f = plt.figure('Population Rate Varying Opto Duration', figsize=(6.4, 6.4))
 axes = f.subplots(len(sds), 1)
@@ -324,7 +321,6 @@ axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
 axes[-1].set_xlabel('Time (sec)')
 if input('Save? [y/N] ').strip().lower().startswith('y'):
     f.savefig('opto-duration_rates.png', bbox_inches='tight', dpi=600)
-    f.savefig('opto-duration_rates.pdf', bbox_inches='tight')
 
 
 # %%
@@ -343,7 +339,7 @@ for opto_threshold in [np.inf, 200, 100, 50]:
     sd.metadata['opto_threshold'] = opto_threshold
     sds.append(sd)
 
-f = plt.figure('Raster Varying Opto Duration', figsize=(6.4, 6.4))
+f = plt.figure('Raster Varying Opto Threshold', figsize=(6.4, 6.4))
 axes = f.subplots(len(sds), 1)
 for ax, sd in zip(axes, sds):
     idces, times = sd.subtime(1000, ...).idces_times()
@@ -357,9 +353,8 @@ axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
 axes[-1].set_xlabel('Time (sec)')
 if input('Save? [y/N] ').strip().lower().startswith('y'):
     f.savefig('opto-threshold.png', bbox_inches='tight', dpi=600)
-    f.savefig('opto-threshold.pdf', bbox_inches='tight')
 
-f = plt.figure('Population Rate Varying Opto Duration', figsize=(6.4, 6.4))
+f = plt.figure('Population Rate Varying Opto Threshold', figsize=(6.4, 6.4))
 axes = f.subplots(len(sds), 1)
 for ax, sd in zip(axes, sds):
     ax.plot(sd.binned(1)[1000:])
@@ -372,4 +367,3 @@ axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
 axes[-1].set_xlabel('Time (sec)')
 if input('Save? [y/N] ').strip().lower().startswith('y'):
     f.savefig('opto-threshold_rates.png', bbox_inches='tight', dpi=600)
-    f.savefig('opto-threshold_rates.pdf', bbox_inches='tight')
