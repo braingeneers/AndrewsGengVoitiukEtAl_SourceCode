@@ -277,22 +277,29 @@ def query_save(f, name):
 # Plot two different figures of the same results, one in terms of rasters,
 # and one in terms of population rate.
 
-sds_fraction = []
-for p_opto in [0.0, 0.5, 1.0]:
-    sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0,
-             p_opto=p_opto, opto_duration=50)
-    idces, times = sd.subtime(1000, ...).idces_times()
-    print(f'With {p_opto = :.0%}, '
-          f'FR was {sd.rates("Hz").mean():.2f} Hz. '
-          f'Did opto {len(sd.metadata["opto_times"])} times.')
-    sds_fraction.append(sd)
+T_optos = [10, 50, 100]
 
-f = plt.figure('Varying Optogenetically Active Cells', figsize=(6.4, 6.4))
-axes = plot_sds(f, sds_fraction)
-for sd, ax in zip(sds_fraction, axes):
-    ax.set_ylabel(f'$p_\\text{{opto}} = {100*sd.metadata["p_opto"]:.0f}\\%$')
+sds_fractionses = []
+for T_opto in T_optos:
+    sds_fraction = []
+    for p_opto in [0.0, 0.25, 0.5, 0.75]:
+        sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0,
+                 p_opto=p_opto, opto_duration=T_opto)
+        idces, times = sd.subtime(1000, ...).idces_times()
+        print(f'With {p_opto = :.0%}, '
+              f'FR was {sd.rates("Hz").mean():.2f} Hz. '
+              f'Did opto {len(sd.metadata["opto_times"])} times.')
+        sds_fraction.append(sd)
+    sds_fractionses.append(sds_fraction)
 
-query_save(f, 'opto-fraction.png')
+for T_opto, sds_fraction in zip(T_optos, sds_fractionses):
+    f = plt.figure(f'Varying Optogenetic Fraction, {T_opto = }',
+                   figsize=(6.4, 6.4))
+    axes = plot_sds(f, sds_fraction)
+    for sd, ax in zip(sds_fraction, axes):
+        ax.set_ylabel(f'$p_\\text{{opto}} = {100*sd.metadata["p_opto"]:.0f}\\%$')
+
+    query_save(f, f'opto-fraction-{T_opto}ms.png')
 
 # %%
 # Run the same simulation again, this time varying the duration of the opto
