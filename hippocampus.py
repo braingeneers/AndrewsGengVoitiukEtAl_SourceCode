@@ -242,20 +242,21 @@ def plot_sds(f, sds):
     axes = f.subplots(len(sds), 1)
     for ax, sd in zip(axes, sds):
         idces, times = sd.subtime(1000, ...).idces_times()
-        ax.plot(times, idces, '.', ms=0.1)
+        ax.plot(times, idces, 'k|', ms=0.1)
         ax.set_yticks([])
         ax.set_xticks([])
         ax.set_xlim(0, 2e3)
         opto_duration = sd.metadata['opto_duration']
         optos = np.array(sd.metadata['opto_times']) - 1000
         if len(optos) > 0 and opto_duration > 0:
-            optos = np.hstack([start + np.arange(opto_duration)
-                               for start in optos])
-            optos = optos[optos >= 0]
-            ax.plot(optos, -25+0*optos, 'g.', ms=0.5)
+            pc = plt.matplotlib.collections.PatchCollection(
+                [plt.Rectangle((opto, -25), opto_duration, sd.N+50)
+                 for opto in optos],
+                facecolor='g', alpha=0.3, edgecolor='none')
+            ax.add_collection(pc)
         xlim = ax.get_xlim()
         ax2 = ax.twinx()
-        ax2.plot(sd.binned(1)[1000:], 'k', lw=0.75)
+        ax2.plot(sd.binned(1)[1000:], c='purple', lw=0.75)
         ax2.set_yticks([0, 300])
         ax2.set_ylim(-25, 325)
         ax2.set_ylabel('Pop. Rate (Hz)')
@@ -297,6 +298,7 @@ for T_opto, sds_fraction in zip(T_optos, sds_fractionses):
                    figsize=(6.4, 6.4))
     axes = plot_sds(f, sds_fraction)
     for sd, ax in zip(sds_fraction, axes):
-        ax.set_ylabel(f'$p_\\text{{opto}} = {100*sd.metadata["p_opto"]:.0f}\\%$')
+        ax.set_ylabel(f'$p_\\text{{opto}} = '
+                      f'{100*sd.metadata["p_opto"]:.0f}\\%$')
 
     query_save(f, f'opto-fraction-{T_opto}ms.png')
