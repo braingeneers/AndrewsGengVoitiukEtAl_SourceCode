@@ -70,7 +70,7 @@ def scaled_weights(factor, w=default_weights):
 
 
 def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
-                         p_opto=0.0, g_opto=100.0, w=default_weights):
+                         p_opto=0.0, g_opto=50.0, w=default_weights):
     '''
     Create a dentate gyrus network for a NEST simulation, consisting of
     N_granule granule cells and N_basket basket cells, based on the dentate
@@ -283,7 +283,7 @@ T_optos = [10, 50, 100]
 sds_fractionses = []
 for T_opto in T_optos:
     sds_fraction = []
-    for p_opto in [0.0, 0.25, 0.5, 0.75]:
+    for p_opto in [0.1, 0.25, 0.5, 0.75]:
         sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0,
                  p_opto=p_opto, opto_duration=T_opto)
         idces, times = sd.subtime(1000, ...).idces_times()
@@ -301,4 +301,4 @@ for T_opto, sds_fraction in zip(T_optos, sds_fractionses):
         ax.set_ylabel(f'$p_\\text{{opto}} = '
                       f'{100*sd.metadata["p_opto"]:.0f}\\%$')
 
-    query_save(f, f'opto-fraction-{T_opto}ms.png')
+    # query_save(f, f'opto-fraction-{T_opto}ms.png')

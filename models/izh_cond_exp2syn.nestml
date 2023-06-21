@@ -10,7 +10,7 @@ neuron izh_cond_exp2syn:
     kernel g_inh = exp(-bicuc) * (exp(-t / tau2_inh) - exp(-t / tau1_inh))
     inline I_exc pA = factor_exc*convolve(g_exc, spike_exc) * (E_exc - V_m)
     inline I_inh pA = factor_inh*convolve(g_inh, spike_inh) * (E_inh - V_m)
-    inline I_opto pA = g_opto * (c - V_m) * opto
+    inline I_opto pA = g_opto * (E_opto - V_m) * opto
     inline dV mV = 0.04*V_m*V_m/mV + 5.0*V_m + (140.0 mV - U_m)
     V_m' = dV/ms + (I_e + I_stim + I_exc + I_inh + I_opto)/C_m
     U_m' = a*(b*V_m - U_m) / ms
@@ -39,9 +39,10 @@ neuron izh_cond_exp2syn:
     tau1_inh ms = 0.5 ms [[0 ms < tau1_inh and tau1_inh < tau2_inh]]
     # decay time constant of inhibitory synaptic conductance
     tau2_inh ms = 5.0 ms [[0 ms < tau1_inh and tau1_inh < tau2_inh]]
+    C_m pF = 100.0 pF    # membrane capacitance
     E_exc mV = 0.0 mV    # excitatory synaptic reversal potential
     E_inh mV = -80.0 mV  # inhibitory synaptic reversal potential
-    C_m pF = 100.0 pF    # membrane capacitance
+    E_opto mV = -85.0 mV # optogenetic reversal potential
     g_opto nS = 0.0 nS   # conductance when the optogenetic switch is on
 
   input:
