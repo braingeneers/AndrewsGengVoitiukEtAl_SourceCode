@@ -199,14 +199,25 @@ def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
     return granule, basket
 
 
-def sim(T=1e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15, **kwargs):
+def sim(T=2e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15,
+        warmup_time=1e3, **kwargs):
+    # Create and warm up the network.
     reset_nest(dt, seed)
     granule, basket = create_dentate_gyrus(**kwargs)
-    rec = nest.Create('spike_recorder')
-    nest.Connect(granule, rec)
-    nest.Connect(basket, rec)
-    opto_times = []
-    with tqdm(total=T) as pbar:
+    with tqdm(total=T+warmup_time) as pbar:
+        with nest.RunManager():
+            for t in range(int(warmup_time)):
+                nest.Run(1.0)
+                pbar.update()
+
+        # Add spike recording.
+        rec = nest.Create('spike_recorder')
+        nest.Connect(granule, rec)
+        nest.Connect(basket, rec)
+
+        # Simulate 1ms at a time, checking if at least opto_threshold spikes
+        # occur, and enabling opto for opto_duration if so.
+        opto_times = []
         with nest.RunManager():
             time_to_enable_opto = 0
             for t in range(int(T)):
@@ -220,18 +231,21 @@ def sim(T=1e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15, **kwargs):
                 if time_to_enable_opto == 0 and new_spikes > opto_threshold:
                     time_to_enable_opto = opto_duration
                     opto_times.append(t)
+
     # This is a little weird, but I want to use the spike train extraction
     # code I wrote for SpikeData, but NEST NodeCollections can't be combined
     # once they have spatial metadata etc. Instead, create a SpikeData per
-    # population, and combine their actual data.
+    # population, removing the warmup time from each, and combine them.
     sdg, sdb = [
-        ba.SpikeData(rec, layer, N=len(layer), length=T)
+        ba.SpikeData(rec, layer, N=len(layer), length=T+warmup_time
+                     ).subtime(warmup_time, ...)
         for layer in (granule, basket)]
     return ba.SpikeData(sdg.train + sdb.train, length=T,
                         metadata=dict(opto_times=opto_times,
                                       p_opto=kwargs.get('p_opto'),
                                       opto_duration=opto_duration,
                                       opto_threshold=opto_threshold))
+
 
 def plot_sds(f, sds):
     '''
@@ -241,13 +255,13 @@ def plot_sds(f, sds):
     f.clear()
     axes = f.subplots(len(sds), 1)
     for ax, sd in zip(axes, sds):
-        idces, times = sd.subtime(1000, ...).idces_times()
+        idces, times = sd.idces_times()
         ax.plot(times, idces, 'k|', ms=0.1)
         ax.set_yticks([])
         ax.set_xticks([])
         ax.set_xlim(0, 2e3)
         opto_duration = sd.metadata['opto_duration']
-        optos = np.array(sd.metadata['opto_times']) - 1000
+        optos = np.array(sd.metadata['opto_times'])
         if len(optos) > 0 and opto_duration > 0:
             pc = plt.matplotlib.collections.PatchCollection(
                 [plt.Rectangle((opto, -25), opto_duration, sd.N+50)
@@ -256,7 +270,7 @@ def plot_sds(f, sds):
             ax.add_collection(pc)
         xlim = ax.get_xlim()
         ax2 = ax.twinx()
-        ax2.plot(sd.binned(1)[1000:], c='purple', lw=0.75)
+        ax2.plot(sd.binned(1), c='purple', lw=0.75)
         ax2.set_yticks([0, 300])
         ax2.set_ylim(-25, 325)
         ax2.set_ylabel('Pop. Rate (Hz)')
@@ -284,9 +298,9 @@ sds_fractionses = []
 for T_opto in T_optos:
     sds_fraction = []
     for p_opto in [0.1, 0.25, 0.5, 0.75]:
-        sd = sim(N_granule=1000, N_basket=12, T=3e3, N_perforant=0,
+        sd = sim(N_granule=1000, N_basket=12, N_perforant=0,
                  p_opto=p_opto, opto_duration=T_opto)
-        idces, times = sd.subtime(1000, ...).idces_times()
+        idces, times = sd.idces_times()
         print(f'With {p_opto = :.0%}, '
               f'FR was {sd.rates("Hz").mean():.2f} Hz. '
               f'Did opto {len(sd.metadata["opto_times"])} times.')
@@ -301,4 +315,4 @@ for T_opto, sds_fraction in zip(T_optos, sds_fractionses):
         ax.set_ylabel(f'$p_\\text{{opto}} = '
                       f'{100*sd.metadata["p_opto"]:.0f}\\%$')
 
-    # query_save(f, f'opto-fraction-{T_opto}ms.png')
+    query_save(f, f'opto-fraction-{T_opto}ms.png')
