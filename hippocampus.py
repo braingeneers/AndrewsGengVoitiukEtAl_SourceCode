@@ -28,6 +28,7 @@ def reset_nest(dt, seed):
     nest.local_num_threads = 12
     nest.resolution = dt
     nest.rng_seed = seed
+    np.random.seed(seed)
     nest.CopyModel('izh_cond_exp2syn', 'granule_cell',
                    params=dict(C_m=65.0, tau1_exc=1.5, tau2_exc=5.5,
                                tau1_inh=0.26, tau2_inh=1.8))
@@ -46,27 +47,6 @@ default_weights = Weights(
     FE=1.0,
     XI=1.5,
     FI=1.0)
-
-
-def scaled_weights(factor, w=default_weights):
-    '''
-    Create a rescaled version of the weights w. There are four variants:
-     1. For scalar `factor`, multiply all the weights by this value
-     2. For tuple `(fe, fi)`, multiply the excitatory weights by `fe` and
-        inhibitory weights by `fi`.
-     3. For vector `factor`, multiply each weight by the corresponding
-        element of the vector.
-     4. For None, generate a vector of 8 random numbers from an
-        exponential distribution.
-    '''
-    match factor:
-        case None | 'random':
-            x = np.random.exponential(size=8)
-        case [e, i]:
-            x = np.array([e, e, i, i, e, e, e, e])
-        case _:
-            x = np.asarray(factor)
-    return Weights(*x*w)
 
 
 def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
@@ -214,19 +194,23 @@ def sim(T=2e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15,
         # Simulate 1ms at a time, checking if at least opto_threshold
         # spikes occur, and enabling opto for opto_duration if so.
         opto_times = []
+        has_opto = not (kwargs.get('p_opto') == 0 or opto_duration == 0
+                        or opto_threshold > len(granule)+len(basket))
         with nest.RunManager():
             time_to_enable_opto = 0
             for t in range(int(T)):
                 last_n_events = rec.n_events
                 if time_to_enable_opto > 0:
                     time_to_enable_opto -= 1
-                granule.opto = time_to_enable_opto > 0
+                if has_opto:
+                    granule.opto = time_to_enable_opto > 0
                 nest.Run(1.0)
                 pbar.update()
                 new_spikes = rec.n_events - last_n_events
                 if time_to_enable_opto == 0 and new_spikes > opto_threshold:
                     time_to_enable_opto = opto_duration
-                    opto_times.append(t)
+                    if has_opto:
+                        opto_times.append(t)
 
     # This is a little weird, but I want to use the spike train
     # extraction code I wrote for SpikeData, but NEST NodeCollections
@@ -294,7 +278,7 @@ T_opto = 50
 sds_fraction = []
 for p_opto in [0.0, 0.25, 0.5, 0.75]:
     sd = sim(N_granule=1000, N_basket=12, N_perforant=0,
-             p_opto=p_opto, opto_duration=T_opto, opto_threshold=125)
+             p_opto=p_opto, opto_duration=T_opto, opto_threshold=100)
     idces, times = sd.idces_times()
     print(f'With {p_opto = :.0%}, '
           f'FR was {sd.rates("Hz").mean():.2f} Hz. '
