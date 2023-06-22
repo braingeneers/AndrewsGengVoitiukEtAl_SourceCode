@@ -1,7 +1,7 @@
 # hippocampus.py
 #
-# Replicate the dentate gyrus network of Buchin et al. 2023, but using NEST
-# and Izhikevich neurons for quick and easy simulation.
+# Replicate the dentate gyrus network of Buchin et al. 2023, but using
+# NEST and Izhikevich neurons for quick and easy simulation.
 import os
 os.environ['PYNEST_QUIET'] = '1'
 import nest
@@ -56,8 +56,8 @@ def scaled_weights(factor, w=default_weights):
         inhibitory weights by `fi`.
      3. For vector `factor`, multiply each weight by the corresponding
         element of the vector.
-     4. For None, generate a vector of 8 random numbers from an exponential
-        distribution.
+     4. For None, generate a vector of 8 random numbers from an
+        exponential distribution.
     '''
     match factor:
         case None | 'random':
@@ -73,8 +73,8 @@ def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
                          p_opto=0.0, g_opto=50.0, w=default_weights):
     '''
     Create a dentate gyrus network for a NEST simulation, consisting of
-    N_granule granule cells and N_basket basket cells, based on the dentate
-    gyrus network of Buchin et al. 2023.
+    N_granule granule cells and N_basket basket cells, based on the
+    dentate gyrus network of Buchin et al. 2023.
 
     The network consists of granule cells and basket cells, but they have
     been simplified from the original paper; instead of using a set of
@@ -82,19 +82,16 @@ def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
     neurons with the same parameter distributions as the excitatory and
     inhibitory cell types from the 2003 paper that introduced the model.
 
-    Granule cells and basket cells are arranged in concentric half-circular
-    arcs of radius 800μm and 750μm, and connectivity is all local. GCs
-    connect to 50 of the 100 closest GCs as well as the 3 closest BCs. BCs
-    connect to 100/140 closest GCs as well as their own two closest
-    neighbors. There are also Poisson inputs to each neuron.
+    Granule cells and basket cells are arranged in concentric
+    half-circular arcs of radius 800μm and 750μm, and connectivity is all
+    local. GCs connect to 50 of the 100 closest GCs as well as the
+    3 closest BCs. BCs connect to 100/140 closest GCs as well as their
+    own two closest neighbors. There are also Poisson inputs to each
+    neuron.
 
     Instead of randomizing the number of synapses, we just use uniformly
-    distributed weights, equal to a number of synapses times the weight per
-    synapse from the original paper.
-
-    The original network used a distinction between dendritic and somatic
-    synapses, but this is not implemented here. Instead, the synapses use
-    different amplitudes and time constants to emulate the effect of
+    distributed weights, equal to a number of synapses times the weight
+    per synapse from the original paper.
     '''
     r_g, r_b = 800, 750
 
@@ -122,10 +119,10 @@ def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
         angle_per_step = np.pi/(N-1)
         return 2*radius * np.sin(k*angle_per_step/2)
 
-    # Connect the granule cells to each other with a circular mask that only
-    # grabs the 100 nearest neighbors, and a fixed degree of 50. Note that
-    # this means going for the 50th-nearest neighbor, as the radius extends
-    # in both directions.
+    # Connect the granule cells to each other with a circular mask that
+    # only grabs the 100 nearest neighbors, and a fixed degree of 50.
+    # Note that this means going for the 50th-nearest neighbor, as the
+    # radius extends in both directions.
     nest.Connect(granule, granule,
                  dict(rule='fixed_outdegree', outdegree=50,
                       mask=dict(circular=dict(
@@ -135,8 +132,8 @@ def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
                       weight=w.EE * nest.random.uniform(2, 5)))
 
     # Likewise for the BCs, but instead of including a fixed number of
-    # neighbors, the radius is fixed to capture one neighbor in the original
-    # formulation with only 6 BCs.
+    # neighbors, the radius is fixed to capture one neighbor in the
+    # original formulation with only 6 BCs.
     nest.Connect(basket, basket,
                  dict(rule='pairwise_bernoulli', p=1.0,
                       mask=dict(circular=dict(
@@ -146,9 +143,8 @@ def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
                       weight=-w.II * nest.random.uniform(2, 5)))
 
     # For between-population connections, find the nearest point in the
-    # other population by calculating the position of the nearest neuron in
-    # the other layer and using that as the anchor for the mask.
-    # GABA_InhToExc_BC_GC
+    # other population by calculating the position of the nearest neuron
+    # in the other layer and using that as the anchor for the mask.
     for b, θ in zip(basket, theta_b):
         θg = np.clip(θ, theta_g[69], theta_g[-70])
         mask = nest.CreateMask(
@@ -179,9 +175,9 @@ def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
                           weight=nest.random.uniform(5*wX, 15*wX)))
 
     # The focal input is required to give the simulation a kick. It comes
-    # through the "perforant path", which is supposed to trigger one lamella
-    # of the hippocampus at a time, in this case just N_perforant adjacent
-    # cells from the middle of the granule cell layer.
+    # through the "perforant path", which is supposed to trigger one
+    # lamella of the hippocampus at a time, in this case just N_perforant
+    # adjacent cells from the middle of the granule cell layer.
     if N_perforant > 0:
         focal = nest.Create('poisson_generator',
                             params=dict(rate=100.0, start=100.0, stop=200.0))
@@ -215,8 +211,8 @@ def sim(T=2e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15,
         nest.Connect(granule, rec)
         nest.Connect(basket, rec)
 
-        # Simulate 1ms at a time, checking if at least opto_threshold spikes
-        # occur, and enabling opto for opto_duration if so.
+        # Simulate 1ms at a time, checking if at least opto_threshold
+        # spikes occur, and enabling opto for opto_duration if so.
         opto_times = []
         with nest.RunManager():
             time_to_enable_opto = 0
@@ -232,10 +228,11 @@ def sim(T=2e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15,
                     time_to_enable_opto = opto_duration
                     opto_times.append(t)
 
-    # This is a little weird, but I want to use the spike train extraction
-    # code I wrote for SpikeData, but NEST NodeCollections can't be combined
-    # once they have spatial metadata etc. Instead, create a SpikeData per
-    # population, removing the warmup time from each, and combine them.
+    # This is a little weird, but I want to use the spike train
+    # extraction code I wrote for SpikeData, but NEST NodeCollections
+    # can't be combined once they have spatial metadata etc. Instead,
+    # create a SpikeData per population, removing the warmup time from
+    # each, and combine them.
     sdg, sdb = [
         ba.SpikeData(rec, layer, N=len(layer), length=T+warmup_time
                      ).subtime(warmup_time, ...)
@@ -286,33 +283,29 @@ def query_save(f, name):
 
 
 # %%
-# Run the simulation with three different levels of optogenetic activation.
-# The parameter p_opto being swept controls what fraction of the granule
-# cells respond to the optogenetic feedback that is used for feedback.
-# Plot two different figures of the same results, one in terms of rasters,
-# and one in terms of population rate.
+# Run the simulation with three different levels of optogenetic
+# activation. The parameter p_opto being swept controls what fraction of
+# the granule cells respond to the optogenetic feedback that is used for
+# feedback. Plot two different figures of the same results, one in terms
+# of rasters, and one in terms of population rate.
 
-T_optos = [10, 50, 100]
+T_opto = 50
 
-sds_fractionses = []
-for T_opto in T_optos:
-    sds_fraction = []
-    for p_opto in [0.1, 0.25, 0.5, 0.75]:
-        sd = sim(N_granule=1000, N_basket=12, N_perforant=0,
-                 p_opto=p_opto, opto_duration=T_opto)
-        idces, times = sd.idces_times()
-        print(f'With {p_opto = :.0%}, '
-              f'FR was {sd.rates("Hz").mean():.2f} Hz. '
-              f'Did opto {len(sd.metadata["opto_times"])} times.')
-        sds_fraction.append(sd)
-    sds_fractionses.append(sds_fraction)
+sds_fraction = []
+for p_opto in [0.0, 0.25, 0.5, 0.75]:
+    sd = sim(N_granule=1000, N_basket=12, N_perforant=0,
+             p_opto=p_opto, opto_duration=T_opto, opto_threshold=125)
+    idces, times = sd.idces_times()
+    print(f'With {p_opto = :.0%}, '
+          f'FR was {sd.rates("Hz").mean():.2f} Hz. '
+          f'Did opto {len(sd.metadata["opto_times"])} times.')
+    sds_fraction.append(sd)
 
-for T_opto, sds_fraction in zip(T_optos, sds_fractionses):
-    f = plt.figure(f'Varying Optogenetic Fraction, {T_opto = }',
-                   figsize=(6.4, 6.4))
-    axes = plot_sds(f, sds_fraction)
-    for sd, ax in zip(sds_fraction, axes):
-        ax.set_ylabel(f'$p_\\text{{opto}} = '
-                      f'{100*sd.metadata["p_opto"]:.0f}\\%$')
+f = plt.figure(f'Varying Optogenetic Fraction',
+               figsize=(6.4, 6.4))
+axes = plot_sds(f, sds_fraction)
+for sd, ax in zip(sds_fraction, axes):
+    ax.set_ylabel(f'$p_\\text{{opto}} = '
+                  f'{100*sd.metadata["p_opto"]:.0f}\\%$')
 
-    query_save(f, f'opto-fraction-{T_opto}ms.png')
+query_save(f, f'opto-fraction-{T_opto}ms.png')
