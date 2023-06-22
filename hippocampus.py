@@ -273,7 +273,7 @@ def query_save(f, name):
 # feedback. Plot two different figures of the same results, one in terms
 # of rasters, and one in terms of population rate.
 
-T_opto = 50
+T_opto = 30
 
 sds_fraction = []
 for p_opto in [0.0, 0.25, 0.5, 0.75]:
@@ -288,8 +288,12 @@ for p_opto in [0.0, 0.25, 0.5, 0.75]:
 f = plt.figure(f'Varying Optogenetic Fraction',
                figsize=(6.4, 6.4))
 axes = plot_sds(f, sds_fraction)
+
 for sd, ax in zip(sds_fraction, axes):
     ax.set_ylabel(f'$p_\\text{{opto}} = '
                   f'{100*sd.metadata["p_opto"]:.0f}\\%$')
+    ax.set_xlim(1e3, 2e3)
+ax.set_xticks([1e3, 2e3], [0, 1])
+axes[0].set_ylabel('Control')
 
 query_save(f, f'opto-fraction-{T_opto}ms.png')
