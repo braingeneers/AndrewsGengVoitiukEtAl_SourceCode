@@ -175,17 +175,12 @@ def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
     return granule, basket
 
 
-def sim(T=2e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15,
+def sim(T=1e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15,
         warmup_time=1e3, **kwargs):
     # Create and warm up the network.
     reset_nest(dt, seed)
     granule, basket = create_dentate_gyrus(**kwargs)
     with tqdm(total=T+warmup_time) as pbar:
-        with nest.RunManager():
-            for t in range(int(warmup_time)):
-                nest.Run(1.0)
-                pbar.update()
-
         # Add spike recording.
         rec = nest.Create('spike_recorder')
         nest.Connect(granule, rec)
@@ -198,7 +193,7 @@ def sim(T=2e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15,
                         or opto_threshold > len(granule)+len(basket))
         with nest.RunManager():
             time_to_enable_opto = 0
-            for t in range(int(T)):
+            for t in range(-int(warmup_time), int(T)):
                 last_n_events = rec.n_events
                 if time_to_enable_opto > 0:
                     time_to_enable_opto -= 1
@@ -209,8 +204,7 @@ def sim(T=2e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15,
                 new_spikes = rec.n_events - last_n_events
                 if time_to_enable_opto == 0 and new_spikes > opto_threshold:
                     time_to_enable_opto = opto_duration
-                    if has_opto:
-                        opto_times.append(t)
+                    opto_times.append(t)
 
     # This is a little weird, but I want to use the spike train
     # extraction code I wrote for SpikeData, but NEST NodeCollections
@@ -240,7 +234,7 @@ def plot_sds(f, sds):
         ax.plot(times, idces, 'k|', ms=0.1)
         ax.set_yticks([])
         ax.set_xticks([])
-        ax.set_xlim(0, 2e3)
+        ax.set_xlim(0, sd.length)
         opto_duration = sd.metadata['opto_duration']
         optos = np.array(sd.metadata['opto_times'])
         if len(optos) > 0 and opto_duration > 0:
@@ -255,8 +249,8 @@ def plot_sds(f, sds):
         ax2.set_yticks([0, 300])
         ax2.set_ylim(-25, 325)
         ax2.set_ylabel('Pop. Rate (Hz)')
-    ticks = np.array([0, 10, 20])
-    axes[-1].set_xticks(ticks*100, [f'${t/10:0.1f}$' for t in ticks])
+    ticks = np.arange(0, sd.length, 1e3)
+    axes[-1].set_xticks(ticks, [f'{t/1e3:0.0f}' for t in ticks])
     axes[-1].set_xlabel('Time (sec)')
     return axes
 
@@ -288,12 +282,8 @@ for p_opto in [0.0, 0.25, 0.5, 0.75]:
 f = plt.figure(f'Varying Optogenetic Fraction',
                figsize=(6.4, 6.4))
 axes = plot_sds(f, sds_fraction)
-
 for sd, ax in zip(sds_fraction, axes):
     ax.set_ylabel(f'$p_\\text{{opto}} = '
                   f'{100*sd.metadata["p_opto"]:.0f}\\%$')
-    ax.set_xlim(1e3, 2e3)
-ax.set_xticks([1e3, 2e3], [0, 1])
-axes[0].set_ylabel('Control')
 
-query_save(f, f'opto-fraction-{T_opto}ms.png')
+# query_save(f, f'opto-fraction-{T_opto}ms.png')
