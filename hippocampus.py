@@ -175,12 +175,12 @@ def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
     return granule, basket
 
 
-def sim(T=1e3, dt=0.1, seed=42, opto_threshold=100, opto_duration=15,
-        warmup_time=1e3, **kwargs):
+def sim(T=1e3, dt=0.1, seed=20, opto_threshold=100, opto_duration=15,
+        warmup_time=1e3, use_tqdm=True, **kwargs):
     # Create and warm up the network.
     reset_nest(dt, seed)
     granule, basket = create_dentate_gyrus(**kwargs)
-    with tqdm(total=T+warmup_time) as pbar:
+    with tqdm(total=T+warmup_time, disable=not use_tqdm) as pbar:
         # Add spike recording.
         rec = nest.Create('spike_recorder')
         nest.Connect(granule, rec)
@@ -278,6 +278,7 @@ for p_opto in [0.0, 0.25, 0.5, 0.75]:
           f'FR was {sd.rates("Hz").mean():.2f} Hz. '
           f'Did opto {len(sd.metadata["opto_times"])} times.')
     sds_fraction.append(sd)
+sds_fraction[0].metadata['opto_times'] = []
 
 f = plt.figure(f'Varying Optogenetic Fraction',
                figsize=(6.4, 6.4))
@@ -285,5 +286,6 @@ axes = plot_sds(f, sds_fraction)
 for sd, ax in zip(sds_fraction, axes):
     ax.set_ylabel(f'$p_\\text{{opto}} = '
                   f'{100*sd.metadata["p_opto"]:.0f}\\%$')
+axes[0].set_ylabel('Control')
 
-# query_save(f, f'opto-fraction-{T_opto}ms.png')
+query_save(f, f'final.png')
