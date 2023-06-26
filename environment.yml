@@ -1,0 +1,11 @@
+name: AndrewsVoitiukEtAl
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10.*
+  - nest-simulator=3.4.*
+  - tqdm
+  - pip
+  - pip:
+    - git+https://github.com/braingeneers/braingeneerspy.git#egg=braingeneerspy[minimal,analysis]
+    - nestml==5.*

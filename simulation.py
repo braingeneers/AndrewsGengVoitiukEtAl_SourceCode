@@ -255,11 +255,6 @@ def plot_sds(f, sds):
     return axes
 
 
-def query_save(f, name):
-    if input('Save? [y/N] ').strip().lower().startswith('y'):
-        f.savefig(name, bbox_inches='tight', dpi=600)
-
-
 # %%
 # Run the simulation with three different levels of optogenetic
 # activation. The parameter p_opto being swept controls what fraction of
@@ -287,5 +282,3 @@ for sd, ax in zip(sds_fraction, axes):
     ax.set_ylabel(f'$p_\\text{{opto}} = '
                   f'{100*sd.metadata["p_opto"]:.0f}\\%$')
 axes[0].set_ylabel('Control')
-
-query_save(f, f'final.png')
