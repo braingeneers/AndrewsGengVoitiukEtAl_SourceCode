@@ -352,10 +352,6 @@ class OptoEnv:
 
     def stim_pulse(self, on_duration, off_duration, notes=None): #consider: off_duration_pre, off_duration_post
 
-        # Consider later for ramped signal & rampTime
-        # if not (0 <= intensity_fraction <= 1):
-        #         raise ValueError("rampTime")
-
         # if self.time_stim_end > time.time():
         #     print("Wait! Previous stim hasn't finished yet.")
         #     print("Stim Ends:", self.time_stim_end, "\t Time now:", time.time())
@@ -388,8 +384,6 @@ class OptoEnv:
 
 
     def stim_sweep(self, intensities, on_durations, off_durations, num_stims_per_condition, off_between_conditions=0):
-    # """
-    # """
         for intensity in intensities:
             self.opto.set_arduino_intensity(intensity)
             for on_duration, off_duration in zip(on_durations, off_durations):
@@ -408,10 +402,6 @@ class OptoEnv:
     def stim_duration_sweep(self, intensity, on_durations, off_durations, num_stims_per_duration, off_between_conditions=0):
         self.stim_sweep([intensity], on_durations, off_durations, num_stims_per_duration, off_between_conditions)    
         return
-
-    # def stim_looping_pattern(self, intensities, on_durations, off_durations, num_stims_per_duration, off_between_conditions=0):
-    #     self.stim_sweep(intensities, [on_duration], [off_duration], num_stims_per_intensity, off_between_conditions)
-    #     return
 
     def freq_to_cycle_frames(self, frequencies):
        return [int(self.sec / frequency)  for frequency in frequencies]
@@ -478,7 +468,6 @@ class OptoEnv:
                 if self.verbose: print("Stim " + str(timer_sec) + "sec (" + str(round(timer_sec/60, 2)) + \
                             " min) @ " + str(frequency) + " Hz  -(Stims every " + str(1/frequency) + " sec)")
         
-
                 t_start = time.time()
                 if self.verbose: print("Start: " + str(time.ctime(t_start)))
             

@@ -75,18 +75,11 @@ void setup() {
   digitalWrite(A2, LOW);//Set A2 as GND
   digitalWrite(A3, HIGH);//Set A3 as Vcc
 
-  //write_to_DAC(0);
-     
-//  while(!my_transfer.available());
-//  my_transfer.rxObj(position); 
-//  my_transfer.sendDatum((position));
-
 }
 
 
 void loop() {
 
- 
      maxwell_toggle = analogRead(analog_pin);
 
       if (my_transfer.available()) {
@@ -101,29 +94,6 @@ void loop() {
       } else {
            write_to_DAC(0);
       }
-
-
-      
-// 
-//      if((position.use_maxwell) and (maxwell_toggle > 200)){
-//              write_to_DAC(position.intensity);
-//      } else if (!(position.use_maxwell) and position.pulse){
-//   
-//               //write_to_DAC(0);
-//              delay(position.initial_delay);//position.initial_delay * 50);
-//              
-//              write_to_DAC(position.intensity);
-//              delay(position.on_duration);//position.on_duration * 50);
-//          
-//              write_to_DAC(0);
-//              delay(position.off_duration);//position.off_duration * 50);
-//            
-//              position.pulse = FALSE;
-//       
-//      } else {
-//           write_to_DAC(0);
-//      }
-
  
  }
 

@@ -4,10 +4,6 @@
 # https://machinelearningmastery.com/curve-fitting-with-python/
 
 
-#Optogenetics: top level library
-#Opto_hardware: low-level library
-#optogentics_helper: old code
-
 import numpy as np
 from numpy import arange
 from pandas import read_csv
@@ -220,17 +216,11 @@ class OptoHardware:
         def objective(x, a, b, c):
             return a * x + b * x**2 + c
 
-
-
         # choose the input and output variables
         x, y = np.array(x_raw), np.array(y_raw)
 
         # curve fit
         popt, _ = curve_fit(objective, x, y)
-
-
-        #fig, axs = plt.subplots(figsize=(8, 6))
-        # We change the fontsize of minor ticks label
 
         # summarize the parameter values
         a, b, c = popt
@@ -254,10 +244,6 @@ class OptoHardware:
 
         return a, b, c
 
-        #bare_LED = 112.30053 * x + -28.80158 * x**2 + -0.52006 #bare LED
-        #bare_LED_inv = return ((112.30053-math.sqrt(-115.20632*y + 12551.49483)) / (57.60316)) #bare LED
-        #cannula = 0.55040 * x + -0.13691 * x**2 + -0.00290 # Cannula LED
-        #cannula_inv = ((0.5504 - math.sqrt(-0.54764*y + 0.301352004)) / 0.27382) # Cannula LED
 
     def plot_power_curve(self):
         title = "Power of " + str(self.LED_wavelength) + "nm LED, " + str(self.fiber_core_diam_um) + "nm core cable & cannula, cannula " + str(self.fiber_len_mm) + "mm"
@@ -333,7 +319,6 @@ class OptoHardware:
             raise ValueError("Error: Input must be in range ", min(self.y), "to", max(self.y))
 
         x_value = np.interp(y, self.y, self.x)
-        #x_value = ((0.5504 - math.sqrt(-0.54764*y + 0.301352004)) / 0.27382)
         return x_value
 
 
@@ -366,6 +351,7 @@ class OptoHardware:
 
         #Helper function
         def open_link(path, baud):
+            # code/comment source: https://stackoverflow.com/questions/61371786/how-to-reconstruct-the-structure-in-python-from-pyserialtransfers-list-of-numbe
             """Insert an object into pySerialtxfer TX buffer starting at the specified index.
 
             Args:
@@ -408,6 +394,7 @@ class OptoHardware:
 
         #Helper function --------------------------
         def stuff_object(txfer_obj, val, format_string, object_byte_size, start_pos=0):
+            # This part of code is from https://arduino.stackexchange.com/questions/74719/debugging-different-serial-receive-send-behavior-between-uno-mega
             """Insert an object into pySerialtxfer TX buffer starting at the specified index.
 
             Args:
@@ -505,48 +492,3 @@ class OptoHardware:
         self.send_arduino_datum(DAC_intensity_bitvalue, pulse, initial_delay, on_duration, off_duration)
 
         return
-
-
-
-
-
-
-
-
-
-'''
-Notes:
-- When LED Driver MOD receives >5V, it turns off
-- DAC Documentation: https://www.sparkfun.com/datasheets/BreakoutBoards/MCP4725.pdf
-
-LED Driver Mode: MOD
-
-Set Brightness: 0-5V -- corresponds to intensity mW/mm2
-
-Record how far your fiber is from the sample.
-
-'''
-
-# Docstring example
-'''
-Calculates power density [mW/mm^2] from arduino setting [fraction from 0 to 1]
-
-Args:
-    self:
-    mW_density: float representing mW density
-
-Returns:
-    percent_intensity: arduino setting (float) as a fraction from 0 to 1
-
-Raises:
-    KeyError: Raises an exception.
-    '''
-
-
-# Checks before experiment (manual mode):
-#1) Connect MaxWell headstage via HDMI cable to HDMI breakout board
-#2) Remove little red board and unplug black & white jumper wire from it
-#3) move black jumper wire (coming out of LEDD1B) to Arduino pin "GND"
-#4) move white jumper wire (coming out of LEDD1B) to Arduino pin "A1"
-#5) Set little black switch on LEDD1B to be "Trig" (middle position)
-#6) Make sure power knob on LEDD1B is in on position (Past the click)
