@@ -1,4 +1,4 @@
-### Manuscript Source Code
+# Manuscript Source Code
 
 #### Simulation 
 Contains code to run the proof of concept hippocampal model
