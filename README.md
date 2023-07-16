@@ -8,3 +8,6 @@ Contains code to control optogenetics hardware and run the experiment
 
 #### Code_for_Figures 
 Contains code used to generate manuscript figures
+
+#### experiment_implementer
+Contains the code and folder structures used to implement the experiments.
