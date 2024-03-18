@@ -174,8 +174,8 @@ def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
     return granule, basket
 
 
-def sim(T=1e3, dt=0.1, seed=20, opto_threshold=100, opto_duration=15,
-        warmup_time=1e3, use_tqdm=True, **kwargs):
+def sim(T=1e3, dt=0.1, seed=20, opto_threshold=100, opto_duration=30,
+        warmup_time=1e3, use_tqdm=True, opto_schedule=[], **kwargs):
     # Create and warm up the network.
     reset_nest(dt, seed)
     granule, basket = create_dentate_gyrus(**kwargs)
@@ -188,8 +188,11 @@ def sim(T=1e3, dt=0.1, seed=20, opto_threshold=100, opto_duration=15,
         # Simulate 1ms at a time, checking if at least opto_threshold
         # spikes occur, and enabling opto for opto_duration if so.
         opto_times = []
-        has_opto = not (kwargs.get('p_opto') == 0 or opto_duration == 0
-                        or opto_threshold > len(granule)+len(basket))
+        has_opto = (
+            kwargs.get("p_opto", 0.0) > 0
+            and opto_duration > 0
+            and (opto_schedule or opto_threshold <= len(granule) + len(basket))
+        )
         with nest.RunManager():
             time_to_enable_opto = 0
             for t in range(-int(warmup_time), int(T)):
@@ -200,8 +203,9 @@ def sim(T=1e3, dt=0.1, seed=20, opto_threshold=100, opto_duration=15,
                     granule.opto = time_to_enable_opto > 0
                 nest.Run(1.0)
                 pbar.update()
-                new_spikes = rec.n_events - last_n_events
-                if time_to_enable_opto == 0 and new_spikes > opto_threshold:
+                enough_spikes = rec.n_events - last_n_events > opto_threshold
+                over_threshold = time_to_enable_opto <= 0 and enough_spikes
+                if (t in opto_schedule) or over_threshold:
                     time_to_enable_opto = opto_duration
                     opto_times.append(t)
 
@@ -215,7 +219,7 @@ def sim(T=1e3, dt=0.1, seed=20, opto_threshold=100, opto_duration=15,
                      ).subtime(warmup_time, ...)
         for layer in (granule, basket)]
     return ba.SpikeData(sdg.train + sdb.train, length=T,
-                        metadata=dict(opto_times=opto_times,
+                        metadata=dict(opto_times=opto_times if has_opto else [],
                                       p_opto=kwargs.get('p_opto'),
                                       opto_duration=opto_duration,
                                       opto_threshold=opto_threshold))
@@ -260,18 +264,14 @@ def plot_sds(f, sds):
 # feedback. Plot two different figures of the same results, one in terms
 # of rasters, and one in terms of population rate.
 
-T_opto = 30
-
 sds_fraction = []
-for p_opto in [0.0, 0.25, 0.5, 0.75]:
-    sd = sim(N_granule=1000, N_basket=12, N_perforant=0,
-             p_opto=p_opto, opto_duration=T_opto, opto_threshold=100)
+for p_opto in [0.0, 0.1, 0.25, 0.5]:
+    sd = sim(N_granule=1000, N_basket=12, N_perforant=0, p_opto=p_opto)
     idces, times = sd.idces_times()
     print(f'With {p_opto = :.0%}, '
           f'FR was {sd.rates("Hz").mean():.2f} Hz. '
           f'Did opto {len(sd.metadata["opto_times"])} times.')
     sds_fraction.append(sd)
-sds_fraction[0].metadata['opto_times'] = []
 
 f = plt.figure('Varying Optogenetic Fraction',
                figsize=(6.4, 6.4))
