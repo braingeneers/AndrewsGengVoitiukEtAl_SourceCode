@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 from collections import namedtuple
 from tqdm import tqdm
 
-plt.ion()
 nest.set_verbosity('M_WARNING')
 from pynestml.frontend.pynestml_frontend import generate_nest_target
 generate_nest_target('models/', '/tmp/nestml-hippocampus/',
@@ -212,7 +211,7 @@ def sim(T=1e3, dt=0.1, seed=20, opto_threshold=100, opto_duration=15,
     # create a SpikeData per population, removing the warmup time from
     # each, and combine them.
     sdg, sdb = [
-        ba.SpikeData(rec, layer, N=len(layer), length=T+warmup_time
+        ba.SpikeData.from_nest(rec, layer, N=len(layer), length=T+warmup_time
                      ).subtime(warmup_time, ...)
         for layer in (granule, basket)]
     return ba.SpikeData(sdg.train + sdb.train, length=T,
@@ -243,13 +242,12 @@ def plot_sds(f, sds):
                  for opto in optos],
                 facecolor='g', alpha=0.3, edgecolor='none')
             ax.add_collection(pc)
-        xlim = ax.get_xlim()
         ax2 = ax.twinx()
         ax2.plot(sd.binned(1), c='purple', lw=0.75)
         ax2.set_yticks([0, 300])
         ax2.set_ylim(-25, 325)
         ax2.set_ylabel('Pop. Rate (Hz)')
-    ticks = np.arange(0, sd.length, 1e3)
+    ticks = np.arange(sd.length//1e3 + 1) * 1e3
     axes[-1].set_xticks(ticks, [f'{t/1e3:0.0f}' for t in ticks])
     axes[-1].set_xlabel('Time (sec)')
     return axes
@@ -275,10 +273,12 @@ for p_opto in [0.0, 0.25, 0.5, 0.75]:
     sds_fraction.append(sd)
 sds_fraction[0].metadata['opto_times'] = []
 
-f = plt.figure(f'Varying Optogenetic Fraction',
+f = plt.figure('Varying Optogenetic Fraction',
                figsize=(6.4, 6.4))
 axes = plot_sds(f, sds_fraction)
 for sd, ax in zip(sds_fraction, axes):
     ax.set_ylabel(f'$p_\\text{{opto}} = '
                   f'{100*sd.metadata["p_opto"]:.0f}\\%$')
 axes[0].set_ylabel('Control')
+
+plt.show()
