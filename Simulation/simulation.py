@@ -3,19 +3,22 @@
 # Replicate the dentate gyrus network of Buchin et al. 2023, but using
 # NEST and Izhikevich neurons for quick and easy simulation.
 import os
+import tempfile
+from collections import namedtuple
+
 os.environ['PYNEST_QUIET'] = '1'
-import nest
-import numpy as np
 import braingeneers.analysis as ba
 import matplotlib.pyplot as plt
-from collections import namedtuple
+import nest
+import numpy as np
+from pynestml.frontend.pynestml_frontend import generate_nest_target
 from tqdm import tqdm
 
 nest.set_verbosity('M_WARNING')
-from pynestml.frontend.pynestml_frontend import generate_nest_target
-generate_nest_target('models/', '/tmp/nestml-hippocampus/',
-                     module_name='hippocampusmodule',
-                     logging_level='WARNING')
+with tempfile.TemporaryDirectory() as tempdir:
+    generate_nest_target('models/', tempdir,
+                         module_name='hippocampusmodule',
+                         logging_level='WARNING')
 nest.Install('hippocampusmodule')
 
 
