@@ -2,18 +2,19 @@ neuron izh_cond_exp2syn:
   state:
     V_m mV = c
     U_m mV = b * V_m
+    a_opto real = 0.0
     opto boolean = false
-    bicuc real = 0.0
 
   equations:
     kernel g_exc = exp(-t / tau2_exc) - exp(-t / tau1_exc)
-    kernel g_inh = exp(-bicuc) * (exp(-t / tau2_inh) - exp(-t / tau1_inh))
+    kernel g_inh = exp(-t / tau2_inh) - exp(-t / tau1_inh)
     inline I_exc pA = factor_exc*convolve(g_exc, spike_exc) * (E_exc - V_m)
     inline I_inh pA = factor_inh*convolve(g_inh, spike_inh) * (E_inh - V_m)
-    inline I_opto pA = g_opto * (E_opto - V_m) * opto
+    inline I_opto pA = g_opto * (E_opto - V_m) * a_opto
     inline dV mV = 0.04*V_m*V_m/mV + 5.0*V_m + (140.0 mV - U_m)
     V_m' = dV/ms + (I_e + I_stim + I_exc + I_inh + I_opto)/C_m
     U_m' = a*(b*V_m - U_m) / ms
+    a_opto' = -a_opto / tau_opto
 
   # Normalization factors for the synaptic conductances to ensure that the
   # maximum conductance is equal to the synaptic weight.
@@ -44,6 +45,8 @@ neuron izh_cond_exp2syn:
     E_inh mV = -80.0 mV  # inhibitory synaptic reversal potential
     E_opto mV = -85.0 mV # optogenetic reversal potential
     g_opto nS = 0.0 nS   # conductance when the optogenetic switch is on
+    # decay time constant of optogenetic conductance
+    tau_opto ms = 50 ms [[0 ms < tau_opto]]
 
   input:
     spike_exc nS <- excitatory spike
@@ -55,6 +58,10 @@ neuron izh_cond_exp2syn:
 
   update:
     integrate_odes()
+
+    # Peg opto activation whenever the light is on.
+    if opto:
+      a_opto = 1
 
     # threshold crossing
     if V_m >= 30 mV:

@@ -12,8 +12,8 @@ Each GC was randomly connected via AMPA synapses to 50 of the 100 nearest GCs as
 All synapses use a conductance whose time course follows a difference-of-exponentials form with parameters taken from Buchin et al.[^21].
 Dynamical parameters of the individual neurons were taken from Izhikevich et al.[^41], but the original model does not include membrane capacitance due to its use of instantaneous synapses, so the membrane capacitance for each cell type was selected in order to recapitulate the dynamical behavior observed in Buchin et al.[^21].
 
-In order to interrupt the seizure-like synchronization behavior observed in this model, a light-sensitive kalium channelrhodopsin[^22] was added to the model. This channel was modeled as a simple switched conductance without dynamics, whose reversal potential and total conductance are given by the reference.
-The channel was enabled in a variable fraction $p_\text{opto}$ of simulated GCs.
+In order to interrupt the seizure-like synchronization behavior observed in this model, a light-sensitive kalium channelrhodopsin[^22] was added to the model. The channel is modeled as being open whenever the light input is active, and decaying exponentially with a time constant of $\tau = 50\,\text{ms}$ as suggested by Extended Data Figure 3. The reversal potential is given by the ref[^22] as $E_\text{opto} = -85\,\text{mV}$, and the conductance is set to $g_\text{opto} = 20\,\text{pS}$ to match the peak current in Extended Data Figure 3.
+This channel was enabled in a variable fraction $p_\text{opto}$ of simulated GCs.
 Then, during simulations, the optogenetic channel was controlled in closed loop: simulation was performed in 1 ms steps, and if the total spike count in a single step exceeded a threshold $x_\text{opto}$, the optogenetic channel was enabled for a duration $T_\text{opto}$.
 
 The first second of each simulation was ignored in order to allow the network to reach its steady-state behavior.

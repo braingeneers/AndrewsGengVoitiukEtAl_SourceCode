@@ -52,7 +52,7 @@ default_weights = Weights(
 
 
 def create_dentate_gyrus(N_granule=500, N_basket=6, N_perforant=50,
-                         p_opto=0.0, g_opto=50.0, w=default_weights):
+                         p_opto=0.0, g_opto=20.0, w=default_weights):
     '''
     Create a dentate gyrus network for a NEST simulation, consisting of
     N_granule granule cells and N_basket basket cells, based on the
