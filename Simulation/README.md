@@ -37,5 +37,5 @@ python simulation.py
 [^22]: Govorunova, E. G. et al. Kalium channelrhodopsins are natural light-gated potassium channels that mediate optogenetic inhibition. Nature Neuroscience 25, 967-974 (2022).
 [^40]: Santhakumar V. et al. Role of mossy fiber sprouting and mossy cell loss in hyperexcitability: a network model of the dentate gyrus incorporating cell types and axonal topography. J. Neurophysiol. 93, 437-453 (2005).
 [^41]: Izhikevich, E. M. Simple model of spiking neurons. IEEE Transactions on Neural Networks 14, 1569-1572 (2003).
-[^42] Sinha, A. et al. NEST 3.4. Zenodo doi://10.5281/zenodo.6867800
-[^43] Linssen, Charl A.P. et al. NESTML 5.2.0. Zenodo doi://10.5281/zenodo.7648959
+[^42]: Sinha, A. et al. NEST 3.4. Zenodo doi://10.5281/zenodo.6867800
+[^43]: Linssen, Charl A.P. et al. NESTML 5.2.0. Zenodo doi://10.5281/zenodo.7648959
