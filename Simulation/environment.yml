@@ -1,4 +1,4 @@
-name: AndrewsVoitiukEtAl
+name: AndrewsGengVoitiukEtAl
 channels:
   - conda-forge
 dependencies:
